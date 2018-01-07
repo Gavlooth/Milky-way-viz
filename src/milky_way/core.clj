@@ -1,10 +1,9 @@
 (ns milky-way.core
   (:require [quil.core :as q]
-            [milky-way.views :as views])
-  (:gen-class))
+            [milky-way.views :as views]))
 
 
-(defn -main  [& args]
+(defn run [& args]
   (q/defsketch milky-way
     :title "Milky way"
     :size [800 800]
