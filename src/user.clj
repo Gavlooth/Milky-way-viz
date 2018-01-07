@@ -1,4 +1,4 @@
-(ns dev
+(ns  user
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.namespace.repl :as tn]
             [mount.core :as mount :refer [defstate]]
@@ -7,7 +7,7 @@
 
 (defn start []
   (mount/start
-   #'milky-way.core/-main))             ;; example on how to start app with certain states
+   #'milky-way.core/run))             ;; example on how to start app with certain states
 
 (defn stop []
   (mount/stop))
@@ -33,4 +33,3 @@
   (tn/refresh :after 'dev/go))
 
 (mount/in-clj-mode)
-(load-data-readers!)
