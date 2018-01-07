@@ -13,6 +13,20 @@
 
 (def finish    (-   FastMath/PI step))
 
+
+(defn draw-horizontal-line
+  "Draws a horizontal line on the canvas at height h"
+  [h]
+  (q/line 10 h (- (q/width) 20) h)
+  (q/stroke 255 h)
+  (q/line 10 (+ h 4) (- (q/width) 20) (+ h 4)))
+
+(defn draw-horizontal-line
+  "Draws a vertical line on the canvas at width w"
+  [w]
+  (q/stroke 255 w))
+
+
 (defn setup []
   (q/no-loop)
   (q/smooth)
@@ -28,6 +42,9 @@
   ; by default origin is in the left top corner
   (q/background 231 20 90)
   (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
+
+    (q/line  -800 0 800 0)
+    (q/line  0 -800 0 800)
     (doseq [phi (range start finish step)]
       (let [[x y] (fns/spiral-galaxy   phi  :A 800 :B 0.4 :N 16)]
         (q/point   x y)
@@ -36,7 +53,6 @@
       (let [[x y] (fns/spiral-galaxy   phi  :A 800 :B 0.4 :N 16)]
         (q/point  (* 1 y) (* -1 x))
         (q/point  (* -1 y) (* 1 x))))))
-
 
 
 #_(defn annotate-x-axis []
