@@ -11,7 +11,7 @@
 
 (def start 0.001)
 
-(def finish    (-   FastMath/PI step))
+(def finish (- FastMath/PI step))
 
 
 (defn draw-horizontal-line
@@ -38,7 +38,7 @@
 (defn draw []
   ; move origin point to centre of the sketch
   ; by default origin is in the left top corner
-  (q/background 231 20 90)
+  (q/background 231 5 100)
   (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
 
     (q/line  -800 0 800 0)
