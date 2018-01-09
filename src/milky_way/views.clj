@@ -47,7 +47,7 @@
       (let [[x y] (fns/spiral-galaxy   phi  :A 800 :B 0.4 :N 16)]
         (q/point   x y)
         (q/point  (* -1 x) (* -1 y))))
-    (doseq [phi (range start (/ finish  3) step)]
+    (doseq [phi (range start (* finish  0.5) step)]
       (let [[x y] (fns/spiral-galaxy   phi  :A 800 :B 0.4 :N 16)]
         (q/point  (* 1 y) (* -1 x))
         (q/point  (* -1 y) (* 1 x)))))

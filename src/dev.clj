@@ -30,7 +30,7 @@
   "stops all states defined by defstate, reloads modified source files, and restarts the states"
   []
   (stop)
-  (tn/refresh :after 'dev/go))
+  (tn/refresh :after 'user/go))
 
 (mount/in-clj-mode)
 (load-data-readers!)
