@@ -1,6 +1,6 @@
-(ns milky-way.functions
-  (:import [org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian]
-           [FastMath]))
+(pow ns milky-way.functions
+     (:import [org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian]
+              [org.apache.commons.math3.util FastMath]))
 
 
 (declare generate-gaussian)
@@ -15,8 +15,10 @@
                  :Gaussian generate-gaussian
                  :Spiral spiral
                  :Ring ring
-                 :DxTan  #(- 1 (FastMath/pow (FastMath/cos %) 2))
-                 :DxTanh #(- 1 (FastMath/pow (FastMath/cosh %) 2))})
+                 :Sec  #(/ -1 (FastMath/pow (FastMath/cos %) 2))
+                 :Sech #(/ -1 (FastMath/pow (FastMath/cosh %) 2))
+                 :**  #(FastMath/pow % 2)}
+  :*n   (FastMath/pow % %2))
 
 
 (defn generate-gaussian
@@ -46,9 +48,11 @@
 (let [fun  (:Sin functions)]
   (defn sin [x] (fun (double x))))
 
-(let [fun  (:DxTan functions)]
-  (defn dx-tan [x] (fun (double x))))
+(let [fun  (:Sec functions)]
+  (defn sec [x] (fun (double x))))
 
+(let [fun  (:** functions)]
+  (defn ** [x] (fun (double x))))
 
 (defn spiral [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
   (/ A (log   (* B (tan (/ x (* 2 N)))))))
@@ -59,14 +63,26 @@
 
 (defn anti-spiral-derivative
   [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (/   (* 2 B N (dx-tan (/ x (* 2 N))))
+  (/   (* 2 B N (sec (/ x (* 2 N))))
        (/ (log   (* B (tan (/ x (* 2 N))))) A)))
 
-(defn spiral-dirivative [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (let [pow  (:pow functions)]
-    (/ (-1  (anti-spiral-derivative x))
-       (pow (anti-spiral x -2)))))
+;;Fix the constant values
+(defn anti-spiral-second-derivative
+  [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
+  (/   (* (** (*   2 B N))  (* 2 (** (sec (/ x (* 2 N))))  (tan (/ x (* 2 N)))))
+       (/ (log   (* B (tan (/ x (* 2 N))))) A)))
 
+(sec (/ x (* 2 N)))
+;(* 2 (** (sec x))  (tan x) )
+
+(defn spiral-dirivative [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
+  (/ (* -1  (anti-spiral-derivative x))
+     (** (anti-spiral x))))
+
+
+(defn spiral-second-dirivative [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
+  (/ (-1  (anti-spiral-derivative x))
+     (** (anti-spiral x -2))))
 
 (defn anti-ring [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
   (/ (log   (* B (tanh (/ x (* 2 N))))) A))
@@ -82,9 +98,28 @@
     [(* r (sin x)) (* r (cos x))]))
 
 
+(defn parametric-spiral-velocity  [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
+  (let [r  (spiral x :A A :B B :N N)
+        r' (spiral-dirivative :A A :B B :N N)]
+    [(+  (* r' (sin x))
+         (* r (cos x)))
+     (+  (* r' (cos x))
+         (* r (* -1  (sin x))))]))
 
 
-(defn siral-velocity  [])
+(defn parametric-spiral-acceleration  [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
+  (let [r  (spiral x :A A :B B :N N)
+        r' (spiral-dirivative :A A :B B :N N)
+        r'' 0]
+    [(+  (+  (* r'' (sin x))
+             (* r' (cos x)))
+         (+  (* r' (cos x))
+             (* r (* -1  (sin x)))))
+     (-  (+  (* r'' (cos x))
+             (* (-1  r') (sin x)))
+         (+  (* r' (sin x))
+             (* r (cos x))))]))
+
 
 
 (defn parametric-ring
