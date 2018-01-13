@@ -17,8 +17,8 @@
                  :Ring ring
                  :Sec  #(/ -1 (FastMath/pow (FastMath/cos %) 2))
                  :Sech #(/ -1 (FastMath/pow (FastMath/cosh %) 2))
-                 :**  #(FastMath/pow % 2)}
-  :*n   (FastMath/pow % %2))
+                 :**  #(FastMath/pow % 2)
+                 :*n   (FastMath/pow % %2)})
 
 
 (defn generate-gaussian
@@ -54,17 +54,24 @@
 (let [fun  (:** functions)]
   (defn ** [x] (fun (double x))))
 
+
+(let [fun  (:*n functions)]
+  (defn *4 [x] (fun (double x) 4)))
+
 (defn spiral [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
   (/ A (log   (* B (tan (/ x (* 2 N)))))))
+
 
 (defn anti-spiral
   [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
   (/ (log   (* B (tan (/ x (* 2 N))))) A))
 
+
 (defn anti-spiral-derivative
   [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
   (/   (* 2 B N (sec (/ x (* 2 N))))
        (/ (log   (* B (tan (/ x (* 2 N))))) A)))
+
 
 ;;Fix the constant values
 (defn anti-spiral-second-derivative
@@ -72,8 +79,9 @@
   (/   (* (** (*   2 B N))  (* 2 (** (sec (/ x (* 2 N))))  (tan (/ x (* 2 N)))))
        (/ (log   (* B (tan (/ x (* 2 N))))) A)))
 
+
 (sec (/ x (* 2 N)))
-;(* 2 (** (sec x))  (tan x) )
+
 
 (defn spiral-dirivative [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
   (/ (* -1  (anti-spiral-derivative x))
@@ -81,15 +89,11 @@
 
 
 (defn spiral-second-dirivative [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (/ (-1  (anti-spiral-derivative x))
-     (** (anti-spiral x -2))))
-
-(defn anti-ring [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (/ (log   (* B (tanh (/ x (* 2 N))))) A))
-
-
-(defn ring [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (/ A (log   (* B (tanh (/ x (* 2 N)))))))
+  (/  (+  (* -1  (anti-spiral-second-derivative x)
+             (** (anti-spiral x)))
+          (* 2 (**  (anti-spiral-derivative x))
+             (anti-spiral x)))
+      (*4 (anti-spiral x))))
 
 
 (defn  parametric-spiral
@@ -103,29 +107,19 @@
         r' (spiral-dirivative :A A :B B :N N)]
     [(+  (* r' (sin x))
          (* r (cos x)))
-     (+  (* r' (cos x))
-         (* r (* -1  (sin x))))]))
+     (-  (* r' (cos x))
+         (* r  (sin x)))]))
 
 
 (defn parametric-spiral-acceleration  [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
   (let [r  (spiral x :A A :B B :N N)
         r' (spiral-dirivative :A A :B B :N N)
-        r'' 0]
+        r'' (spiral-second-dirivative :A A :B B :N N)]
     [(+  (+  (* r'' (sin x))
              (* r' (cos x)))
          (+  (* r' (cos x))
              (* r (* -1  (sin x)))))
-     (-  (+  (* r'' (cos x))
-             (* (-1  r') (sin x)))
+     (-  (-  (* r'' (cos x))
+             (* r' (sin x)))
          (+  (* r' (sin x))
              (* r (cos x))))]))
-
-
-
-(defn parametric-ring
-  [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (let [r  (ring x :A A :B B :N N)]
-    [(* r (sin x)) (* r (cos x))]))
-
-
-
