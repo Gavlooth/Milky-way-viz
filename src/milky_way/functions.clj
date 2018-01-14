@@ -110,6 +110,13 @@
      (-  (* r' (cos x))
          (* r  (sin x)))]))
 
+(defn parametric-spiral-normal-line [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
+  (let [[x' y']    (parametric-spiral-velocity x :A A :B B :N N)
+        slop (/ x' y')
+        [x0 y0] (parametric-spiral x :A A :B B :N N)]
+    (fn [w]
+      [w (+   (* slop (- w  x0)) y0)])))
+
 
 (defn parametric-spiral-acceleration  [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
   (let [r  (spiral x :A A :B B :N N)
