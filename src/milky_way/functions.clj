@@ -1,6 +1,6 @@
-(pow ns milky-way.functions
-     (:import [org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian]
-              [org.apache.commons.math3.util FastMath]))
+(ns milky-way.functions
+  (:import [org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian]
+           [org.apache.commons.math3.util FastMath]))
 
 
 (declare generate-gaussian)
@@ -18,7 +18,7 @@
                  :Sec  #(/ -1 (FastMath/pow (FastMath/cos %) 2))
                  :Sech #(/ -1 (FastMath/pow (FastMath/cosh %) 2))
                  :**  #(FastMath/pow % 2)
-                 :*n   (FastMath/pow % %2)})
+                 :*n   #(FastMath/pow % %2)})
 
 
 (defn generate-gaussian
@@ -69,31 +69,19 @@
 
 (defn anti-spiral-derivative
   [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (/   (* 2 B N (sec (/ x (* 2 N))))
-       (/ (log   (* B (tan (/ x (* 2 N))))) A)))
+  (/   (* 2  N (sec (/ x (* 2 N))))
+       (*  A (tan (/ x (* 2 N))))))
 
 
 ;;Fix the constant values
-(defn anti-spiral-second-derivative
-  [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (/   (* (** (*   2 B N))  (* 2 (** (sec (/ x (* 2 N))))  (tan (/ x (* 2 N)))))
-       (/ (log   (* B (tan (/ x (* 2 N))))) A)))
-
-
-(sec (/ x (* 2 N)))
 
 
 (defn spiral-dirivative [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (/ (* -1  (anti-spiral-derivative x))
-     (** (anti-spiral x))))
+  (/ (* -1  (anti-spiral-derivative x :A A :B B :N N))
+     (** (anti-spiral x :A A :B B :N N))))
 
 
-(defn spiral-second-dirivative [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (/  (+  (* -1  (anti-spiral-second-derivative x)
-             (** (anti-spiral x)))
-          (* 2 (**  (anti-spiral-derivative x))
-             (anti-spiral x)))
-      (*4 (anti-spiral x))))
+
 
 
 (defn  parametric-spiral
@@ -104,9 +92,9 @@
 
 (defn parametric-spiral-velocity  [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
   (let [r  (spiral x :A A :B B :N N)
-        r' (spiral-dirivative :A A :B B :N N)]
+        r' (spiral-dirivative x :A A :B B :N N)]
     [(+  (* r' (sin x))
-         (* r (cos x)))
+         (* r  (cos x)))
      (-  (* r' (cos x))
          (* r  (sin x)))]))
 
@@ -115,18 +103,8 @@
         slop (/ x' y')
         [x0 y0] (parametric-spiral x :A A :B B :N N)]
     (fn [w]
+      #_(.println System/out x0)
       [w (+   (* slop (- w  x0)) y0)])))
 
 
-(defn parametric-spiral-acceleration  [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (let [r  (spiral x :A A :B B :N N)
-        r' (spiral-dirivative :A A :B B :N N)
-        r'' (spiral-second-dirivative :A A :B B :N N)]
-    [(+  (+  (* r'' (sin x))
-             (* r' (cos x)))
-         (+  (* r' (cos x))
-             (* r (* -1  (sin x)))))
-     (-  (-  (* r'' (cos x))
-             (* r' (sin x)))
-         (+  (* r' (sin x))
-             (* r (cos x))))]))
+
