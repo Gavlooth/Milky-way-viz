@@ -3,12 +3,11 @@
             [clojure.tools.namespace.repl :as tn]
             [mount.core :as mount :refer [defstate]]
             [mount.tools.graph :refer [states-with-deps]]
-            [milky-way.core]))
+            [milky-way.core :refer [run]]))
 
 (defn start []
   (mount/start
    #'milky-way.core/run))             ;; example on how to start app with certain states
-
 (defn stop []
   (mount/stop))
 
@@ -33,3 +32,6 @@
   (tn/refresh :after 'user/go))
 
 (mount/in-clj-mode)
+
+
+

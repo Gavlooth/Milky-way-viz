@@ -1,0 +1,82 @@
+[1mdiff --git a/project.clj b/project.clj[m
+[1mindex 30f27c0..cf41087 100644[m
+[1m--- a/project.clj[m
+[1m+++ b/project.clj[m
+[36m@@ -5,7 +5,7 @@[m
+             :url "http://www.eclipse.org/legal/epl-v10.html"}[m
+   :dependencies [[org.clojure/clojure "1.9.0"][m
+                  [mount "0.1.11"][m
+[31m-                 ;; [rm-hull/infix "0.3.1"][m
+[32m+[m[32m                 [rm-hull/infix "0.3.1"][m
+                  [quil "2.6.0"][m
+                  [org.clojure/tools.namespace "0.2.11"][m
+                  [org.apache.commons/commons-math3 "3.6.1"]])[m
+[1mdiff --git a/src/milky_way/functions.clj b/src/milky_way/functions.clj[m
+[1mindex 47d8c9e..3b404cc 100644[m
+[1m--- a/src/milky_way/functions.clj[m
+[1m+++ b/src/milky_way/functions.clj[m
+[36m@@ -81,9 +81,6 @@[m
+      (** (anti-spiral x :A A :B B :N N))))[m
+ [m
+ [m
+[31m-[m
+[31m-[m
+[31m-[m
+ (defn  parametric-spiral[m
+   [x & {:keys [A B N] :or {A 1 B 1 N 1}}][m
+   (let [r  (spiral x :A A :B B :N N)][m
+[36m@@ -103,8 +100,8 @@[m
+         slop (/ x' y')[m
+         [x0 y0] (parametric-spiral x :A A :B B :N N)][m
+     (fn [w][m
+[31m-      #_(.println System/out x0)[m
+       [w (+   (* slop (- w  x0)) y0)])))[m
+ [m
+[32m+[m[32m;; (.println System/out x0)[m
+ [m
+ [m
+[1mdiff --git a/src/milky_way/views.clj b/src/milky_way/views.clj[m
+[1mindex 8ccbfb4..7e5cb0b 100644[m
+[1m--- a/src/milky_way/views.clj[m
+[1m+++ b/src/milky_way/views.clj[m
+[36m@@ -48,10 +48,11 @@[m
+     (doseq [phi (range start finish step)][m
+       (let [[x y] (functions/parametric-spiral phi :A 800 :B 0.4 :N 5)[m
+             normal-line (functions/parametric-spiral-normal-line[m
+[31m-                         phi :A 800 :B 0.4 :N 5)][m
+[31m-        (q/point   x y)[m
+[31m-        (doseq  [ksi  (range  (- 150 phi) (+ 150 phi) 0.5)][m
+[31m-          (apply q/point  (normal-line  ksi)))[m
+[32m+[m[32m                         phi :A 800 :B 0.4 :N 5)[m
+[32m+[m[32m            normal-radius (range  (+ 50 x) (- 50 x) 0.5)][m
+[32m+[m
+[32m+[m[32m        (for  [ksi  normal-radius][m
+[32m+[m[32m          (apply q/point (normal-line  ksi)))[m
+         (q/point  (* -1 x) (* -1 y))))[m
+     (q/with-rotation [(/ PI 2)][m
+       (doseq [phi (range start (* finish  0.5) step)][m
+[1mdiff --git a/src/user.clj b/src/user.clj[m
+[1mindex 9a8acb6..858d286 100644[m
+[1m--- a/src/user.clj[m
+[1m+++ b/src/user.clj[m
+[36m@@ -3,12 +3,11 @@[m
+             [clojure.tools.namespace.repl :as tn][m
+             [mount.core :as mount :refer [defstate]][m
+             [mount.tools.graph :refer [states-with-deps]][m
+[31m-            [milky-way.core]))[m
+[32m+[m[32m            [milky-way.core :refer [run]]))[m
+ [m
+ (defn start [][m
+   (mount/start[m
+    #'milky-way.core/run))             ;; example on how to start app with certain states[m
+[31m-[m
+ (defn stop [][m
+   (mount/stop))[m
+ [m
+[36m@@ -33,3 +32,6 @@[m
+   (tn/refresh :after 'user/go))[m
+ [m
+ (mount/in-clj-mode)[m
+[41m+[m
+[41m+[m
+[41m+[m
