@@ -1,7 +1,7 @@
 (ns milky-way.functions
   (:import [org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian]
-           [org.apache.commons.math3.util FastMath])
-  (:require [infix.macros :refer [infix from-string base-env]]))
+           [org.apache.commons.math3.util FastMath]))
+
 
 (declare generate-gaussian)
 (declare spiral)
@@ -58,45 +58,30 @@
 (let [fun  (:*n functions)]
   (defn *4 [x] (fun (double x) 4)))
 
-(/ A (log   (* B (tan (/ x (* 2 N))))))
-(def spiral
-  (fn  [x {:keys [A B N] :or {A 1 B 1 N 1}}]
-    (infix  A / (log / ( B * tan ( x / (2 * N)))) ) ))
-
-
 (defn spiral [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
   (/ A (log   (* B (tan (/ x (* 2 N)))))))
 
-(def anti-spiral
-  (fn   [x   {:keys [A B N] :or {A 1 B 1 N 1}}]
-     (infix    (log / ( B * tan ( x / (2 * N)))) / A)))
 
 (defn anti-spiral
   [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
   (/ (log   (* B (tan (/ x (* 2 N))))) A))
 
-(def anti-spiral-derivative
-  (fn [x   {:keys [A B N] :or {A 1 B 1 N 1}}]
-    (infix  ((2* N * (sec (x / (2 * N))))   /
-             (A * (tan (x / (2 * N))))  )))  )
 
 (defn anti-spiral-derivative
   [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
   (/   (* 2  N (sec (/ x (* 2 N))))
        (*  A (tan (/ x (* 2 N))))))
 
-(/ (* -1  (anti-spiral-derivative x :A A :B B :N N))
-     (** (anti-spiral x :A A :B B :N N)))
+
 ;;Fix the constant values
-(def spiral-dirivative
- (fn  [x  {:keys [A B N] :or {A 1 B 1 N 1} :as params}]
-   (infix (anti-spiral-derivative x params)
-          /
-          ( ( anti-spiral x  params) *n 2))))
+
 
 (defn spiral-dirivative [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
   (/ (* -1  (anti-spiral-derivative x :A A :B B :N N))
      (** (anti-spiral x :A A :B B :N N))))
+
+
+
 
 
 (defn  parametric-spiral
@@ -118,8 +103,8 @@
         slop (/ x' y')
         [x0 y0] (parametric-spiral x :A A :B B :N N)]
     (fn [w]
+      #_(.println System/out x0)
       [w (+   (* slop (- w  x0)) y0)])))
 
-;; (.println System/out x0)
 
 

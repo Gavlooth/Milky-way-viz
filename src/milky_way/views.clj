@@ -48,11 +48,10 @@
     (doseq [phi (range start finish step)]
       (let [[x y] (functions/parametric-spiral phi :A 800 :B 0.4 :N 5)
             normal-line (functions/parametric-spiral-normal-line
-                         phi :A 800 :B 0.4 :N 5)
-            normal-radius (range  (+ 50 x) (- 50 x) 0.5)]
-
-        (for  [ksi  normal-radius]
-          (apply q/point (normal-line  ksi)))
+                         phi :A 800 :B 0.4 :N 5)]
+        (q/point   x y)
+        (doseq  [ksi  (range  (- 150 phi) (+ 150 phi) 0.5)]
+          (apply q/point  (normal-line  ksi)))
         (q/point  (* -1 x) (* -1 y))))
     (q/with-rotation [(/ PI 2)]
       (doseq [phi (range start (* finish  0.5) step)]
