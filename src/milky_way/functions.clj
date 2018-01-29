@@ -103,13 +103,22 @@
      (-  (* r' (cos x))
          (* r  (sin x)))]))
 
-(defn parametric-spiral-normal-line [x  opts]
+(defn parametric-spiral-tangent-line [x  opts]
   (let [[x' y']    (parametric-spiral-velocity x opts)
-        slop (/ x' y')
+        slop (* -1 (/ y'  x' ))
         [x0 y0] (parametric-spiral x  opts)]
     (fn [w]
-      #_(.println System/out x0)
       [w (+   (* slop (- w  x0)) y0)])))
 
+(defn parametric-spiral-normal-line [x  opts]
+  (let [[x' y']    (parametric-spiral-velocity x opts)
+        slop (* -1 (/ x' y'))
+        [x0 y0] (parametric-spiral x  opts)]
+    (fn [w]
+      [w (+   (* slop (- w  x0)) y0)])))
 
+(defn -test [x  opts]
+  (let [[_ y0] (parametric-spiral x  opts)]
+    (fn [w]
+      [w  y0])))
 
