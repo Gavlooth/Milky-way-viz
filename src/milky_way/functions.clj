@@ -58,50 +58,55 @@
 (let [fun  (:*n functions)]
   (defn *4 [x] (fun (double x) 4)))
 
-(defn spiral [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (/ A (log   (* B (tan (/ x (* 2 N)))))))
+(defn spiral
+  ([x] (spiral {}))
+  ([x  opts]
+   (let [{:keys [A B N]  :or {A 1 B 1 N 1}} opts]
+     (/ A (log   (* B (tan (/ x (* 2 N)))))))))
 
 
 (defn anti-spiral
-  [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (/ (log   (* B (tan (/ x (* 2 N))))) A))
+
+  ([x] (anti-spiral {}))
+  ([x   opts]
+   (let [{:keys [A B N]  :or {A 1 B 1 N 1}} opts]
+     (/ (log   (* B (tan (/ x (* 2 N))))) A))))
 
 
 (defn anti-spiral-derivative
-  [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (/   (* 2  N (sec (/ x (* 2 N))))
-       (*  A (tan (/ x (* 2 N))))))
+  ([x] (anti-spiral-derivative x {}))
+  ([x opts]
+   (let [{:keys [A B N]  :or {A 1 B 1 N 1}} opts]
+     (/ (* 2  N (sec (/ x (* 2 N))))
+        (*  A (tan (/ x (* 2 N))))))))
 
 
 ;;Fix the constant values
 
 
-(defn spiral-dirivative [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (/ (* -1  (anti-spiral-derivative x :A A :B B :N N))
-     (** (anti-spiral x :A A :B B :N N))))
-
-
-
+(defn spiral-dirivative [x  opts]
+  (/ (* -1  (anti-spiral-derivative x opts))
+     (** (anti-spiral x opts))))
 
 
 (defn  parametric-spiral
-  [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (let [r  (spiral x :A A :B B :N N)]
+  [x  opts]
+  (let [r  (spiral x opts)]
     [(* r (sin x)) (* r (cos x))]))
 
 
-(defn parametric-spiral-velocity  [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (let [r  (spiral x :A A :B B :N N)
-        r' (spiral-dirivative x :A A :B B :N N)]
+(defn parametric-spiral-velocity  [x opts]
+  (let [r  (spiral x opts)
+        r' (spiral-dirivative x opts)]
     [(+  (* r' (sin x))
          (* r  (cos x)))
      (-  (* r' (cos x))
          (* r  (sin x)))]))
 
-(defn parametric-spiral-normal-line [x & {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (let [[x' y']    (parametric-spiral-velocity x :A A :B B :N N)
+(defn parametric-spiral-normal-line [x  opts]
+  (let [[x' y']    (parametric-spiral-velocity x opts)
         slop (/ x' y')
-        [x0 y0] (parametric-spiral x :A A :B B :N N)]
+        [x0 y0] (parametric-spiral x  opts)]
     (fn [w]
       #_(.println System/out x0)
       [w (+   (* slop (- w  x0)) y0)])))

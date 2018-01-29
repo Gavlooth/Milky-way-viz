@@ -3,7 +3,7 @@
             [clojure.tools.namespace.repl :as tn]
             [mount.core :as mount :refer [defstate]]
             [mount.tools.graph :refer [states-with-deps]]
-            [milky-way.core]))
+            [milky-way.core :refer [run]]))
 
 (defn start []
   (mount/start
@@ -24,6 +24,7 @@
   "starts all states defined by defstate"
   []
   (start)
+  (run)
   :ready)
 
 (defn reset
