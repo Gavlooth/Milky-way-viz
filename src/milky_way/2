@@ -57,21 +57,23 @@
           (let [[x y] (functions/normal-vector  phi opts  ksi)]
             (q/point  (* -1 x) (* -1 y))))))
     (q/with-rotation [(/ PI 2)]
-      (doseq [phi (range start finish step)]
-        (let [[x y] (functions/parametric-spiral phi opts)
-              normal-line (functions/parametric-spiral-normal-line phi opts)]
-          (q/point   x y)
-          (doseq  [ksi  (range  (- 15) (+ 15) 0.5)]
-            (apply q/point  (functions/normal-vector  phi opts  ksi)))
-          (q/point  (* -1 x) (* -1 y))
-          (doseq  [ksi  (range  (- 15) (+ 15) 0.5)]
-            (let [[x y] (functions/normal-vector  phi opts  ksi)]
-              (q/point  (* -1 x) (* -1 y))))))))
+ (doseq [phi (range start finish step)]
+      (let [[x y] (functions/parametric-spiral phi opts)
+            normal-line (functions/parametric-spiral-normal-line phi opts)]
+        (q/point   x y)
+        (doseq  [ksi  (range  (- 15) (+ 15) 0.5)]
+          (apply q/point  (functions/normal-vector  phi opts  ksi)))
+        (q/point  (* -1 x) (* -1 y))
+        (doseq  [ksi  (range  (- 15) (+ 15) 0.5)]
+          (let [[x y] (functions/normal-vector  phi opts  ksi)]
+            (q/point  (* -1 x) (* -1 y))))))
+
+      ))
   (q/save  (str (uuid) "-milky-way.png")))
 
 #_(q/save  (str (uuid) "-milky-way.png"))
 
 #_(doseq [phi (range start (* finish  0.5) step)]
-    (let [[x y] (functions/parametric-spiral phi  opts)]
-      (q/point    x y)
-      (q/point   (* -1 x) (* -1 y))))
+        (let [[x y] (functions/parametric-spiral phi  opts)]
+          (q/point    x y)
+          (q/point   (* -1 x) (* -1 y))))

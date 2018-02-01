@@ -56,7 +56,9 @@
 
 
 (let [fun  (:*n functions)]
-  (defn *4 [x] (fun (double x) 4)))
+  (defn *4 [x] (fun (double x) 4))
+  (defn *n [x n] (fun (double x) n)))
+
 
 (defn spiral
   ([x] (spiral {}))
@@ -103,9 +105,24 @@
      (-  (* r' (cos x))
          (* r  (sin x)))]))
 
+(defn ortho-normalize-vector [[x y]]
+  (when (or (not= 0 x) (not= 0 y))
+    (let [x' (/ x  (*n (+ (** y) (** x)) 0.5))
+          y' (/ y  (*n (+ (** y) (** x)) 0.5))]
+      [(* -1 y') x'])))
+
+(defn normal-vector
+  ([x opts] (normal-vector x opts 1))
+  ([x opts l]
+   (let  [[a b] (parametric-spiral x opts)
+          the-point (parametric-spiral-velocity  x opts)
+          [w z]  (ortho-normalize-vector the-point)]
+     [(+ a (* l  w)) (+ b (* l z))])))
+
+
 (defn parametric-spiral-tangent-line [x  opts]
-  (let [[x' y']    (parametric-spiral-velocity x opts)
-        slop (* -1 (/ y'  x' ))
+  (let [[x' y']    (parametric-spiral-velocity  x opts)
+        slop (* -1 (/ y'  x'))
         [x0 y0] (parametric-spiral x  opts)]
     (fn [w]
       [w (+   (* slop (- w  x0)) y0)])))
@@ -116,9 +133,4 @@
         [x0 y0] (parametric-spiral x  opts)]
     (fn [w]
       [w (+   (* slop (- w  x0)) y0)])))
-
-(defn -test [x  opts]
-  (let [[_ y0] (parametric-spiral x  opts)]
-    (fn [w]
-      [w  y0])))
 
