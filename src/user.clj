@@ -2,8 +2,11 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.namespace.repl :as tn]
             [mount.core :as mount :refer [defstate]]
+            [milky-way.views :refer [draw-spiral-complement]]
             [mount.tools.graph :refer [states-with-deps]]
             [milky-way.core :refer [run]]))
+
+(set! *warn-on-reflection* true)
 
 (defn start []
   (mount/start
