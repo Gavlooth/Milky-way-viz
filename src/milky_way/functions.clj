@@ -7,6 +7,7 @@
 (def step 0.001)
 (def start 0.001)
 (def finish (- FastMath/PI step))
+(def opts {:A 800 :B 0.4 :N 5})
 
 
 (declare generate-gaussian)
@@ -129,31 +130,11 @@
           [w z]  (ortho-normalize-vector the-point)]
      [(+ a (* l  w)) (+ b (* l z))])))
 
-(defn  fat-spiral-set
-  [{:keys [width point-density] :as opts :or
-    {width 10 point-density 1}}]
+
+;; (range  inner  outer  (/ 1 density))
+
+(defn single-spiral-set [width density]
   (for [phi (range start finish step)]
-    (for [ksi (range  (* -1 (/ width 2))
-                     (/ width 2)
-                     (/ width  (* point-density 100)))]
+    (for [ksi (range (* -1  (/ width 2)) (/ width 2) (/ 1 density))]
       (normal-vector  phi opts  ksi))))
-
-(defn  fat-spiral-complement-set
-  [{:keys [width point-density complement-range] :as opts :or
-    {width 10 point-density 1 complement-range 100}}]
-  (for [phi  (range start finish step)]
-    (vec
-      (concat
-        (for [ksi (range (* -1 complement-range)
-                         (* -1 (/ width 2))
-                         (/ width  (* point-density 100)))]
-          (normal-vector  phi opts  ksi))
-        (for
-          [ksi (range (/ width 2) complement-range (/ width (* point-density 100)))]
-          (normal-vector  phi opts  ksi))))))
-
-
-
-(defn skata [] (take 10 (fat-spiral-complement-set {})))
-
 

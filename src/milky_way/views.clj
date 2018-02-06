@@ -45,6 +45,23 @@
         (q/point  (* -1 x) (* -1 y)))))
 
 ; define function which draws spiral
+#_(defn draw []
+  ; move origin point to centre of the sketch
+  ; by default origin is in the left top corner
+    (q/background 231 5 100)
+    (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
+      (q/line  -800 0 800 0)
+      (q/line  0 -800 0 800)
+      (doseq [phi (range start finish step)]
+        (doseq  [ksi  (range  (- 15) (+ 15) 0.5)]
+          (let [[x y] (functions/normal-vector  phi opts  ksi)]
+            (q/point  x y)
+            (q/point  (* -1 x) (* -1 y))
+            (q/with-rotation [(/ PI 2)]
+              (q/point  x y)
+              (q/point  (* -1 x) (* -1 y)))))))
+    (q/save  (str (uuid) "-milky-way.png")))
+
 (defn draw []
   ; move origin point to centre of the sketch
   ; by default origin is in the left top corner
@@ -53,7 +70,7 @@
     (q/line  -800 0 800 0)
     (q/line  0 -800 0 800)
     (doseq [phi (range start finish step)]
-      (doseq  [ksi  (range  (- 15) (+ 15) 0.5)]
+      (doseq  [ksi (concat (range  (- 30) (- 15) 0.5) (range (+ 15) (+ 30) 0.5))]
         (let [[x y] (functions/normal-vector  phi opts  ksi)]
           (q/point  x y)
           (q/point  (* -1 x) (* -1 y))
@@ -63,7 +80,8 @@
   (q/save  (str (uuid) "-milky-way.png")))
 
 
-(defn draw-spiral [&  {:keys [save] :or {save false}}]
+
+(defn draw-spiral-complement [&  {:keys [save] :or {save false}}]
   ; move origin point to centre of the sketch
   ; by default origin is in the left top corner
   (q/background 231 5 100)
@@ -71,7 +89,7 @@
     (q/line  -800 0 800 0)
     (q/line  0 -800 0 800)
     (doseq [phi (range start finish step)]
-      (doseq  [ksi  (range  (- 15) (+ 15) 0.5)]
+      (doseq  [ksi (concat (range  (- 100) (- 15) 0.5) (range (+ 15) (+ 100) 0.5))]
         (let [[x y] (functions/normal-vector  phi opts  ksi)]
           (q/point  x y)
           (q/point  (* -1 x) (* -1 y))
@@ -80,18 +98,19 @@
             (q/point  (* -1 x) (* -1 y)))))))
   (when save (q/save  (str (uuid) "-milky-way.png"))))
 
-
-(defn draw-spiral-complement [&  {:keys [save] :or {save true}}]
-  (let [the-points (functions/fat-spiral-complement-set)]
-    (q/background 231 5 100)
-    (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
-      (q/line  -800 0 800 0)
-      (q/line  0 -800 0 800)
-      (doseq [points the-points]
-        (doseq  [[x y] points]
+(defn spiral-test [&  {:keys [save] :or {save false}}]
+  ; move origin point to centre of the sketch
+  ; by default origin is in the left top corner
+  (q/background 231 5 100)
+  (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
+    (q/line  -800 0 800 0)
+    (q/line  0 -800 0 800)
+    (let [the-set (functions/single-spiral-set  30 2)]
+      (doseq [phi the-set]
+        (doseq [[x y] phi]
           (q/point  x y)
           (q/point  (* -1 x) (* -1 y))
           (q/with-rotation [(/ PI 2)]
             (q/point  x y)
             (q/point  (* -1 x) (* -1 y)))))))
-  (q/save  (str (uuid) "-milky-way.png")))
+  (when save (q/save  (str (uuid) "-milky-way.png"))))
