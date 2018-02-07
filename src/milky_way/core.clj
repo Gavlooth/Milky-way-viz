@@ -7,5 +7,5 @@
     :title "Milky way"
     :size [800 800]
     :setup views/setup
-    :draw (or draw views/spiral-test)))
+    :draw (or draw views/draw-spiral)))
 

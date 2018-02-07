@@ -2,11 +2,12 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.namespace.repl :as tn]
             [mount.core :as mount :refer [defstate]]
-            [milky-way.views :refer [draw-spiral-complement]]
+            [milky-way.views :as views]
             [mount.tools.graph :refer [states-with-deps]]
             [milky-way.core :refer [run]]))
 
 (set! *warn-on-reflection* true)
+
 
 (defn start []
   (mount/start
@@ -25,10 +26,9 @@
 
 (defn go
   "starts all states defined by defstate"
-  []
+  [& {:keys [draw]}]
   (start)
-  (run)
-  :ready)
+  (run :draw draw) :ready)
 
 (defn reset
   "stops all states defined by defstate, reloads modified source files, and restarts the states"
