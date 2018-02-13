@@ -3,6 +3,7 @@
            [org.apache.commons.math3.util FastMath]
            [org.apache.commons.math3.util MathArrays]))
 
+(set! *warn-on-reflection* true)
 
 (def PI (FastMath/PI))
 
@@ -23,25 +24,35 @@
                  :Tanh  #(FastMath/tan %)
                  :Sin #(FastMath/sin %)
                  :Cos #(FastMath/cos %)
+                 :Sqrt #(FastMath/sqrt %)
                  :Gaussian generate-gaussian
                  :Spiral spiral
                  :Ring ring
-                 :Sec  #(/ -1 (FastMath/pow (FastMath/cos %) 2))
-                 :Sech #(/ -1 (FastMath/pow (FastMath/cosh %) 2))
-                 :**  #(FastMath/pow % 2)
-                 :*n   #(FastMath/pow % %2)
+                 :Sec  #(/ -1 (FastMath/pow ^double (FastMath/cos %) 2))
+                 :Sech #(/ -1 (FastMath/pow ^double (FastMath/cosh %) 2))
+                 :**  #(FastMath/pow ^double % 2)
+                 :*n   #(FastMath/pow ^double % ^double %2)
                  :convolve   #(MathArrays/convolve (long-array %) (long-array %2))})
 
 
 (def model-container& (atom {:Domain nil}))
 
 (defn generate-gaussian
-  [& {:keys [norm mean standard-deviation]
-      :or {mean 0 standard-deviation 1}}]
-  (if norm
-    (Gaussian. norm mean standard-deviation)
-    (Gaussian. mean standard-deviation)))
+  ([] (generate-gaussian {}))
+  ([{:keys [norm mean standard-deviation]
+     :or {mean 0 standard-deviation 1}}]
+   (let [gaussian (if norm (Gaussian. norm mean standard-deviation)
+                      (Gaussian. mean standard-deviation))]
+     (fn [x] (.value ^double gaussian  (double  x))))))
 
+
+(defn generate-2d-gaussian
+  ([] (generate-2d-gaussian {:standard-deviation 1 :mean 0}))
+  ([{:keys [standard-deviation] :as opts}]
+   (let [sqrt-2 (FastMath/sqrt  2)
+         gaussian-1d (generate-gaussian (assoc opts :standard-deviation  (/ standard-deviation sqrt-2)))]
+     (fn [x y]
+       (*  (gaussian-1d x) (gaussian-1d y))))))
 
 (let [fun  (:Log functions)]
   (defn log [x] (fun (double x))))
@@ -164,17 +175,20 @@
   (let [the-spiral (single-spiral-complement-set outer inner density)]
     (mapcat #(rotate-spiral % the-spiral)  angles)))
 
+
 (defn  generate-characteristic  []
   (when-let [[the-set the-complement] (:Domain @model-container&)]
-    (fn [x]
-      (cond (some #(x) the-set) 1
-            (some #(x) the-complement) 0
-            :default "NaN"))))
+    (memoize
+     (fn [x]
+       (cond (some #(x) the-set) 1
+             (some #(x) the-complement) 0
+             :default "NaN")))))
+
 
 (defn spiral-set-1 []
   (swap! model-container& assoc  :Domain
-          [(multispiral-set angles 30 2)
-           (multispiral-complement-set angles 15 100 2)]))
+         [(multispiral-set angles 30 2)
+          (multispiral-complement-set angles 15 100 2)]))
 
 
 (generate-characteristic)
