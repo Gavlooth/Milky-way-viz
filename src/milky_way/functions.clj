@@ -3,7 +3,6 @@
            [org.apache.commons.math3.util FastMath]
            [org.apache.commons.math3.util MathArrays]))
 
-(set! *warn-on-reflection* true)
 
 (def PI (FastMath/PI))
 
