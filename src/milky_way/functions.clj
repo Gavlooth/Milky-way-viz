@@ -1,10 +1,25 @@
 (ns milky-way.functions
-  (:import [org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian]
-           [org.apache.commons.math3.util FastMath]
-           [org.apache.commons.math3.util MathArrays]))
+  (:require [clojure.java.io :as io]
+            [clojure.core.async :as async])
+  (:import (org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian)
+           (org.apache.commons.math3.transform  DftNormalization  FastFourierTransformer)
+           (org.apache.commons.math3.util FastMath)
+           (org.apache.commons.math3.util MathArrays)))
+
+(set! *warn-on-reflection* true)
+
+
+(let [data-folder (-> "config.edn" slurp read-string :data)]
+  (def domains (file-seq (io/file data-folder "domains")))
+  (def spiral-sets (file-seq (io/file data-folder "spiral-sets")))
+  (def characteristic-functions (file-seq (io/file data-folder "characteristic-functions")))
+  (def gaussian-2d-functions  (file-seq (io/file data-folder "2d-gaussian-functions"))))
 
 
 (def PI (FastMath/PI))
+
+
+(def model& (atom {:Domain nil}))
 
 
 (def step 0.001)
@@ -14,9 +29,17 @@
 (def angles [0 (/ PI 2) PI (/ (* 3 PI) 2)])
 
 
+(defn ppr-str [& input]
+  (let [o (new java.io.StringWriter)]
+    (binding [*out* o]
+      (apply clojure.pprint/pprint input)
+      (str o))))
+
+
 (declare generate-gaussian)
 (declare spiral)
 (declare ring)
+
 
 (def functions  {:Log  #(FastMath/log %)
                  :Tan #(FastMath/tan %)
@@ -25,6 +48,7 @@
                  :Cos #(FastMath/cos %)
                  :Sqrt #(FastMath/sqrt %)
                  :Gaussian generate-gaussian
+                 :FFT (FastFourierTransformer. DftNormalization/STANDARD)
                  :Spiral spiral
                  :Ring ring
                  :Sec  #(/ -1 (FastMath/pow ^double (FastMath/cos %) 2))
@@ -33,8 +57,6 @@
                  :*n   #(FastMath/pow ^double % ^double %2)
                  :convolve   #(MathArrays/convolve (long-array %) (long-array %2))})
 
-
-(def model-container& (atom {:Domain nil}))
 
 (defn generate-gaussian
   ([] (generate-gaussian {}))
@@ -46,12 +68,14 @@
 
 
 (defn generate-2d-gaussian
-  ([] (generate-2d-gaussian {:standard-deviation 1 :mean 0}))
-  ([{:keys [standard-deviation] :as opts}]
+  ([] (generate-2d-gaussian {}))
+  ([{:keys [standard-deviation A]
+     :or {standard-deviation 100 mean 0 A 0} :as opts}]
    (let [sqrt-2 (FastMath/sqrt  2)
          gaussian-1d (generate-gaussian (assoc opts :standard-deviation  (/ standard-deviation sqrt-2)))]
-     (fn [x y]
-       (*  (gaussian-1d x) (gaussian-1d y))))))
+     (fn [[x y]]
+       (*  (gaussian-1d x)  (gaussian-1d y))))))
+
 
 (let [fun  (:Log functions)]
   (defn log [x] (fun (double x))))
@@ -152,8 +176,8 @@
 
 (defn single-spiral-complement-set [outer inner density]
   (for [phi (range start finish step)]
-    (for [ksi (cat  (range (* -1 outer) (* -1 inner)  (/ 1 density))
-                    (range   inner  outer  (/ 1 density)))]
+    (for [ksi (concat  (range (* -1 outer) (* -1 inner)  (/ 1 density))
+                       (range   inner  outer  (/ 1 density)))]
       (normal-vector  phi opts  ksi))))
 
 
@@ -176,7 +200,7 @@
 
 
 (defn  generate-characteristic  []
-  (when-let [[the-set the-complement] (:Domain @model-container&)]
+  (when-let [[the-set the-complement] (:Domain @model&)]
     (memoize
      (fn [x]
        (cond (some #(x) the-set) 1
@@ -184,11 +208,61 @@
              :default "NaN")))))
 
 
-(defn spiral-set-1 []
-  (swap! model-container& assoc  :Domain
-         [(multispiral-set angles 30 2)
-          (multispiral-complement-set angles 15 100 2)]))
+(defn  generate-characteristic-graph  [file-name]
+  {:pre [string? file-name]}
+  (when-let [[the-set the-complement]  (:Domain @model&)]
+    (async/thread
+      (try
+        (with-open [w (io/writer file-name)]
+          (binding  [*out* w]
+            (pr (vec (concat (map #(hash-map :x % :y 1) the-set)
+                             (map #(hash-map :x % :y 0) the-complement))))))
+        (.println System/out (str "gaussian was exported succesfuly"))
+        (catch Exception e (.println System/out "Error loading Data" (.getMessage e)))))
+    (.println System/out (str "generation of points started"))))
 
 
-(generate-characteristic)
+(defn generate-2d-gaussian-graph
+  ([file-name] (generate-2d-gaussian-graph file-name {}))
+  ([file-name opts]
+   {:pre [string? file-name map? opts]}
+   (when-let [[the-set the-complement]  (:Domain @model&)]
+     (let [domain (vec (concat the-set the-complement))
+           the-gaussian (generate-2d-gaussian opts)]
+       (async/thread
+         (try
+           (with-open [w (io/writer file-name)]
+             (binding  [*out* w]
+               (pr (mapv (fn [x] (hash-map :x x :y (the-gaussian x))) domain))))
+           (.println System/out (str "gaussian was exported succesfuly"))
+           (catch Exception e (.println System/out "Error loading Data" (.getMessage e)))))
+       (.println System/out (str "generation of points started"))))))
+
+
+(defn  basic-spiral []
+  (swap! model& assoc  :Domain
+         [(vec (apply concat (multispiral-set angles 30 2)))
+          (vec (apply concat  (multispiral-complement-set angles 15 100 2)))]))
+
+
+(defn save-model  [file-name]
+  {:pre [string? file-name]}
+  (spit file-name  (ppr-str (-> model& deref :Domain))))
+
+
+(defn load-model [file-name & {:keys [Key] :or {Key :Domain}}]
+  (async/take!
+   (async/thread
+     (.println System/out (str "loading " (.getName file-name)))
+     (read-string (slurp file-name)))
+   (fn [x]
+     (try
+       (swap! model& assoc Key x)
+       (.println System/out (str "data from " (.getName file-name) " was loaded succesfuly"))
+       (catch Exception e (ppr-str "Error loading Data" (.getMessage e)))))))
+
+(defn forward-transform [the-map]
+
+  )
+
 
