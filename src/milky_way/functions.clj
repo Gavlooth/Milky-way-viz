@@ -2,7 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.core.async :as async])
   (:import (org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian)
-           (org.apache.commons.math3.transform  DftNormalization  FastFourierTransformer)
+           (org.apache.commons.math3.transform FastFourierTransformer DftNormalization TransformType)
            (org.apache.commons.math3.util FastMath)
            (org.apache.commons.math3.util MathArrays)))
 
@@ -10,10 +10,10 @@
 
 
 (let [data-folder (-> "config.edn" slurp read-string :data)]
-  (def domains (file-seq (io/file data-folder "domains")))
-  (def spiral-sets (file-seq (io/file data-folder "spiral-sets")))
-  (def characteristic-functions (file-seq (io/file data-folder "characteristic-functions")))
-  (def gaussian-2d-functions  (file-seq (io/file data-folder "2d-gaussian-functions"))))
+  (def domains (rest (file-seq (io/file data-folder "domains"))))
+  (def spiral-sets (rest (file-seq (io/file data-folder "spiral-sets"))))
+  (def characteristic-functions (rest  (file-seq (io/file data-folder "characteristic-functions"))))
+  (def gaussian-2d-functions (rest (file-seq (io/file data-folder "2d-gaussian-functions")))))
 
 
 (def PI (FastMath/PI))
@@ -36,7 +36,7 @@
       (str o))))
 
 
-(declare generate-gaussian)
+(declare build-gaussian)
 (declare spiral)
 (declare ring)
 
@@ -47,7 +47,7 @@
                  :Sin #(FastMath/sin %)
                  :Cos #(FastMath/cos %)
                  :Sqrt #(FastMath/sqrt %)
-                 :Gaussian generate-gaussian
+                 :Gaussian build-gaussian
                  :FFT (FastFourierTransformer. DftNormalization/STANDARD)
                  :Spiral spiral
                  :Ring ring
@@ -58,8 +58,8 @@
                  :convolve   #(MathArrays/convolve (long-array %) (long-array %2))})
 
 
-(defn generate-gaussian
-  ([] (generate-gaussian {}))
+(defn build-gaussian
+  ([] (build-gaussian {}))
   ([{:keys [norm mean standard-deviation]
      :or {mean 0 standard-deviation 1}}]
    (let [gaussian (if norm (Gaussian. norm mean standard-deviation)
@@ -67,12 +67,12 @@
      (fn [x] (.value ^double gaussian  (double  x))))))
 
 
-(defn generate-2d-gaussian
-  ([] (generate-2d-gaussian {}))
+(defn build-2d-gaussian
+  ([] (build-2d-gaussian {}))
   ([{:keys [standard-deviation A]
      :or {standard-deviation 100 mean 0 A 0} :as opts}]
    (let [sqrt-2 (FastMath/sqrt  2)
-         gaussian-1d (generate-gaussian (assoc opts :standard-deviation  (/ standard-deviation sqrt-2)))]
+         gaussian-1d (build-gaussian (assoc opts :standard-deviation  (/ standard-deviation sqrt-2)))]
      (fn [[x y]]
        (*  (gaussian-1d x)  (gaussian-1d y))))))
 
@@ -109,6 +109,31 @@
   (defn *4 [x] (fun (double x) 4))
   (defn *n [x n] (fun (double x) n)))
 
+;TransformType/FORWARD = "FORWARD"
+(let [fft-fun  (:FFT functions)]
+  (defn fast-fourier-transform [the-seq & {:keys [transform-type] :or {transform-type :forward}}]
+    (let [transform-name (clojure.string/capitalize (name transform-type))
+          least-quadratic (let [item-number (count the-seq)]
+                            (loop [a 2]
+                              (.println System/out a)
+                              (let [a' (* 2 a)]
+                                (if (> a' item-number)
+                                  a (recur a')))))
+          the-array (double-array (map :y (subvec the-seq 0 least-quadratic)))]
+      (let [the-transform-type  (cond  (= "FORWARD" transform-type)  TransformType/FORWARD
+                                        (= "INVERSE" transform-type)  TransformType/INVERSE
+                                        :default "invalid")]
+        (if (= the-transform-type "invalid")
+          (.println System/out "Invalid transform type. Please insert either \"forward\" or \"inverse\" ")
+          (map #(update % :y %2) the-seq (.transform fft-fun  the-array)))))))
+
+
+(defn convolve [seq-1 seq-2 ]
+  (let [transform-1 (fast-fourier-transform seq-1)
+        transform-2 (fast-fourier-transform seq-2)]
+    (let [point-wise-multiplication
+          (map  #(update % :y (fn [y] (+ y (:y %2) )))  transform-1 transform-2 )]
+      (swap! model& assoc :convolution (fast-fourier-transform point-wise-multiplication :transform-type :inverse)))))
 
 (defn spiral
   ([x] (spiral {}))
@@ -199,7 +224,13 @@
     (mapcat #(rotate-spiral % the-spiral)  angles)))
 
 
-(defn  generate-characteristic  []
+(defn  basic-spiral []
+  (swap! model& assoc  :Domain
+         [(vec (apply concat (multispiral-set angles 32 2)))
+          (vec (apply concat  (multispiral-complement-set angles 16 100 2)))]))
+
+
+(defn  build-characteristic  []
   (when-let [[the-set the-complement] (:Domain @model&)]
     (memoize
      (fn [x]
@@ -208,47 +239,47 @@
              :default "NaN")))))
 
 
-(defn  generate-characteristic-graph  [file-name]
+(defn  build-characteristic-graph  [file-name]
   {:pre [string? file-name]}
   (when-let [[the-set the-complement]  (:Domain @model&)]
     (async/thread
       (try
         (with-open [w (io/writer file-name)]
           (binding  [*out* w]
-            (pr (vec (concat (map #(hash-map :x % :y 1) the-set)
-                             (map #(hash-map :x % :y 0) the-complement))))))
-        (.println System/out (str "gaussian was exported succesfuly"))
-        (catch Exception e (.println System/out "Error loading Data" (.getMessage e)))))
+            (pr  (vec (sort-by
+                       :x (concat (map #(hash-map :x % :y 1) the-set)
+                                  (map #(hash-map :x % :y 0)
+                                       the-complement)))))))
+        (.println System/out (str "characteristic was exported succesfuly"))
+        (catch Exception e (.println System/out "Error loading Data"
+                                     (.getMessage e)))))
     (.println System/out (str "generation of points started"))))
 
 
-(defn generate-2d-gaussian-graph
-  ([file-name] (generate-2d-gaussian-graph file-name {}))
+(defn build-2d-gaussian-graph
+  ([file-name] (build-2d-gaussian-graph file-name {}))
   ([file-name opts]
    {:pre [string? file-name map? opts]}
    (when-let [[the-set the-complement]  (:Domain @model&)]
      (let [domain (vec (concat the-set the-complement))
-           the-gaussian (generate-2d-gaussian opts)]
+           the-gaussian (build-2d-gaussian opts)]
        (async/thread
          (try
            (with-open [w (io/writer file-name)]
              (binding  [*out* w]
-               (pr (mapv (fn [x] (hash-map :x x :y (the-gaussian x))) domain))))
+               (pr (vec (sort-by
+                         :x (map (fn [x] (hash-map
+                                          :x x :y (the-gaussian x)))
+                                 domain))))))
            (.println System/out (str "gaussian was exported succesfuly"))
-           (catch Exception e (.println System/out "Error loading Data" (.getMessage e)))))
+           (catch Exception e (.println System/out "Error loading Data"
+                                        (.getMessage e)))))
        (.println System/out (str "generation of points started"))))))
-
-
-(defn  basic-spiral []
-  (swap! model& assoc  :Domain
-         [(vec (apply concat (multispiral-set angles 30 2)))
-          (vec (apply concat  (multispiral-complement-set angles 15 100 2)))]))
 
 
 (defn save-model  [file-name]
   {:pre [string? file-name]}
   (spit file-name  (ppr-str (-> model& deref :Domain))))
-
 
 (defn load-model [file-name & {:keys [Key] :or {Key :Domain}}]
   (async/take!
@@ -261,8 +292,12 @@
        (.println System/out (str "data from " (.getName file-name) " was loaded succesfuly"))
        (catch Exception e (ppr-str "Error loading Data" (.getMessage e)))))))
 
-(defn forward-transform [the-map]
-
-  )
 
 
+(load-model (first  gaussian-2d-functions) :Key :Gaussian)
+
+
+#_(def a (async/thread
+           (do (println "start of proccessing")
+               (let [b (forward-fft (:Gaussian @model&))]
+                 (println "end of proccessing") b))))
