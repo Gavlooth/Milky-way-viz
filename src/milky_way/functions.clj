@@ -1,12 +1,16 @@
 (ns milky-way.functions
   (:require [clojure.java.io :as io]
-            [clojure.core.async :as async])
+            [clojure.core.async :as async :refer [>!! <!!]]
+            [taoensso.timbre :as timbre :refer [spy]])
   (:import (org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian)
            (org.apache.commons.math3.transform FastFourierTransformer DftNormalization TransformType)
            (org.apache.commons.math3.util FastMath)
            (org.apache.commons.math3.util MathArrays)))
 
 (set! *warn-on-reflection* true)
+
+
+(-> "config.edn" slurp read-string :timbre-config eval timbre/merge-config!)
 
 
 (let [data-folder (-> "config.edn" slurp read-string :data)]
@@ -29,11 +33,7 @@
 (def angles [0 (/ PI 2) PI (/ (* 3 PI) 2)])
 
 
-(defn ppr-str [& input]
-  (let [o (new java.io.StringWriter)]
-    (binding [*out* o]
-      (apply clojure.pprint/pprint input)
-      (str o))))
+
 
 
 (declare build-gaussian)
@@ -51,6 +51,7 @@
                  :FFT (FastFourierTransformer. DftNormalization/STANDARD)
                  :Spiral spiral
                  :Ring ring
+                 :Abs  #(FastMath/abs (double   %))
                  :Sec  #(/ -1 (FastMath/pow ^double (FastMath/cos %) 2))
                  :Sech #(/ -1 (FastMath/pow ^double (FastMath/cosh %) 2))
                  :**  #(FastMath/pow ^double % 2)
@@ -77,63 +78,81 @@
        (*  (gaussian-1d x)  (gaussian-1d y))))))
 
 
-(let [fun  (:Log functions)]
-  (defn log [x] (fun (double x))))
+(def log
+  (let [fun  (:Log functions)]
+    (fn [x] (fun (double x)))))
 
 
-(let [fun  (:Tan functions)]
-  (defn tan [x] (fun (double x))))
+(def tan
+  (let [fun  (:Tan functions)]
+    (fn [x] (fun (double x)))))
 
 
-(let [fun  (:Tanh functions)]
-  (defn tanh  [x] (fun  (double x))))
+(def tanh
+  (let [fun  (:Tanh functions)]
+    (fn [x] (fun  (double x)))))
 
 
-(let [fun  (:Cos functions)]
-  (defn cos [x] (fun (double x))))
+(def cos
+  (let [fun  (:Cos functions)]
+    (fn [x] (fun (double x)))))
 
 
-(let [fun  (:Sin functions)]
-  (defn sin [x] (fun (double x))))
+(def  sin
+  (let [fun  (:Sin functions)]
+    (fn [x] (fun (double x)))))
 
 
-(let [fun  (:Sec functions)]
-  (defn sec [x] (fun (double x))))
+(def sec
+  (let [fun  (:Sec functions)]
+    (fn [x] (fun (double x)))))
 
 
-(let [fun  (:** functions)]
-  (defn ** [x] (fun (double x))))
+(def **
+  (let [fun  (:** functions)]
+    (fn [x] (fun (double x)))))
 
 
-(let [fun  (:*n functions)]
-  (defn *4 [x] (fun (double x) 4))
-  (defn *n [x n] (fun (double x) n)))
-
-;TransformType/FORWARD = "FORWARD"
-(let [fft-fun  (:FFT functions)]
-  (defn fast-fourier-transform [the-seq & {:keys [transform-type] :or {transform-type :forward}}]
-    (let [transform-name (clojure.string/capitalize (name transform-type))
-          least-quadratic (let [item-number (count the-seq)]
-                            (loop [a 2]
-                              (.println System/out a)
-                              (let [a' (* 2 a)]
-                                (if (> a' item-number)
-                                  a (recur a')))))
-          the-array (double-array (map :y (subvec the-seq 0 least-quadratic)))]
-      (let [the-transform-type  (cond  (= "FORWARD" transform-type)  TransformType/FORWARD
-                                        (= "INVERSE" transform-type)  TransformType/INVERSE
-                                        :default "invalid")]
-        (if (= the-transform-type "invalid")
-          (.println System/out "Invalid transform type. Please insert either \"forward\" or \"inverse\" ")
-          (map #(update % :y %2) the-seq (.transform fft-fun  the-array)))))))
+(def *4
+  (let [fun  (:*n functions)]
+    (fn [x] (fun (double x) 4))))
 
 
-(defn convolve [seq-1 seq-2 ]
+(def *n
+  (let [fun  (:*n functions)]
+    (fn [x n] (fun (double x) n))))
+
+
+(def fast-fourier-transform
+  (let [fft-fun  (:FFT functions)]
+    (fn [the-seq & {:keys [transform-type] :or {transform-type :forward}}]
+      (let [transform-name  (clojure.string/upper-case (name transform-type))
+            least-quadratic (let [item-number (count the-seq)]
+                              (loop [a 2]
+                                (let [a' (* 2 a)]
+                                  (if (> a' item-number)
+                                    a (recur a')))))
+            the-array (double-array (map :y (subvec the-seq 0 least-quadratic)))]
+        (let [the-transform-type  (cond  (= "FORWARD" transform-name)  TransformType/FORWARD
+                                         (= "INVERSE" transform-name)  TransformType/INVERSE
+                                         :default "invalid")]
+          (if (= the-transform-type "invalid")
+            (.println System/out "Invalid transform type. Please insert either \"forward\" or \"inverse\" ")
+            (map #(assoc % :y (.getReal ^org.apache.commons.math3.complex.Complex  %2))
+                 the-seq (vec (.transform fft-fun the-array the-transform-type)))))))))
+
+
+(defn convolve [seq-1 seq-2]
   (let [transform-1 (fast-fourier-transform seq-1)
         transform-2 (fast-fourier-transform seq-2)]
+    (timbre/log :debug "point wise multiplication started")
     (let [point-wise-multiplication
-          (map  #(update % :y (fn [y] (+ y (:y %2) )))  transform-1 transform-2 )]
-      (swap! model& assoc :convolution (fast-fourier-transform point-wise-multiplication :transform-type :inverse)))))
+          (mapv  #(update % :y (fn [y] (+ y (:y %2))))  transform-1 transform-2)]
+      (timbre/log :debug "point wise multiplication finished")
+      (timbre/log :debug "convolution started")
+      (swap! model& assoc :Convolution (fast-fourier-transform point-wise-multiplication :transform-type :inverse))
+      (timbre/log :debug "convolution finished"))))
+
 
 (defn spiral
   ([x] (spiral {}))
@@ -155,7 +174,7 @@
    (let [{:keys [A B N]  :or {A 1 B 1 N 1}} opts]
      (/ (* 2  N (sec (/ x (* 2 N))))
         (*  A (tan (/ x (* 2 N))))))))
-;;Fix the constant values
+
 
 (defn spiral-dirivative [x  opts]
   (/ (* -1  (anti-spiral-derivative x opts))
@@ -177,6 +196,23 @@
          (* r  (sin x)))]))
 
 
+
+(defn bar-set [&  [x opts width density]]
+  (let [b   (spiral x opts) abs (:Abs functions)]
+    (for [k  (range 0  (abs  b) step)]
+      (for [phi (range (* -1  (/ width 2)) (/ width 2) (/ 1 density))]
+        [phi (* -1   k)]))))
+
+
+(defn bar-set-complement [&  [x opts outer inner  density]]
+  (let [b   (spiral x opts) abs (:Abs functions)]
+    (for [k  (range 0  (abs  b) step)]
+      (for [phi (concat  (range (* -1 outer) (* -1 inner)  (/ 1 density))
+                         (range   inner  outer  (/ 1 density)))]
+        [phi (* -1   k)]))))
+
+
+
 (defn ortho-normalize-vector [[x y]]
   (when (or (not= 0 x) (not= 0 y))
     (let [x' (/ x  (*n (+ (** y) (** x)) 0.5))
@@ -194,16 +230,18 @@
 
 
 (defn single-spiral-set [width density]
-  (for [phi (range start finish step)]
-    (for [ksi (range (* -1  (/ width 2)) (/ width 2) (/ 1 density))]
-      (normal-vector  phi opts  ksi))))
+  (concat (bar-set start opts width density)
+          (for [phi (range start finish step)]
+            (for [ksi (range (* -1  (/ width 2)) (/ width 2) (/ 1 density))]
+              (normal-vector  phi opts  ksi)))))
 
 
 (defn single-spiral-complement-set [outer inner density]
-  (for [phi (range start finish step)]
-    (for [ksi (concat  (range (* -1 outer) (* -1 inner)  (/ 1 density))
-                       (range   inner  outer  (/ 1 density)))]
-      (normal-vector  phi opts  ksi))))
+  (concat (bar-set-complement start opts  outer inner density)
+          (for [phi (range start finish step)]
+            (for [ksi (concat  (range (* -1 outer) (* -1 inner)  (/ 1 density))
+                               (range   inner  outer  (/ 1 density)))]
+              (normal-vector  phi opts  ksi)))))
 
 
 (defn- rotate-spiral [θ the-spiral]
@@ -215,22 +253,22 @@
 
 
 (defn multispiral-set  [angles width density]
-  (let [the-spiral (single-spiral-set width density)]
-    (mapcat #(rotate-spiral % the-spiral)  angles)))
+  (let [the-spiral  (single-spiral-set width density)]
+    (apply concat  (mapcat #(rotate-spiral % the-spiral)  angles))))
 
 
 (defn multispiral-complement-set  [angles inner outer density]
   (let [the-spiral (single-spiral-complement-set outer inner density)]
-    (mapcat #(rotate-spiral % the-spiral)  angles)))
+    (apply concat    (mapcat #(rotate-spiral % the-spiral)  angles))))
 
 
-(defn  basic-spiral []
+(defn basic-spiral []
   (swap! model& assoc  :Domain
          [(vec (apply concat (multispiral-set angles 32 2)))
           (vec (apply concat  (multispiral-complement-set angles 16 100 2)))]))
 
 
-(defn  build-characteristic  []
+(defn build-characteristic  []
   (when-let [[the-set the-complement] (:Domain @model&)]
     (memoize
      (fn [x]
@@ -239,7 +277,7 @@
              :default "NaN")))))
 
 
-(defn  build-characteristic-graph  [file-name]
+(defn build-characteristic-graph  [file-name]
   {:pre [string? file-name]}
   (when-let [[the-set the-complement]  (:Domain @model&)]
     (async/thread
@@ -251,8 +289,7 @@
                                   (map #(hash-map :x % :y 0)
                                        the-complement)))))))
         (.println System/out (str "characteristic was exported succesfuly"))
-        (catch Exception e (.println System/out "Error loading Data"
-                                     (.getMessage e)))))
+        (catch Exception e (.println System/out (str "Error loading Data " (.getMessage e))))))
     (.println System/out (str "generation of points started"))))
 
 
@@ -272,30 +309,30 @@
                                           :x x :y (the-gaussian x)))
                                  domain))))))
            (.println System/out (str "gaussian was exported succesfuly"))
-           (catch Exception e (.println System/out "Error loading Data"
-                                        (.getMessage e)))))
+           (catch Exception e (.println System/out (str "Error loading Data" (.getMessage e))))))
        (.println System/out (str "generation of points started"))))))
 
 
-(defn save-model  [file-name]
-  {:pre [string? file-name]}
-  (spit file-name  (ppr-str (-> model& deref :Domain))))
+(defn save-model  [file-name & {:keys [Key] :or {Key :Domain}}]
+  {:pre [string? file-name keyword? Key]}
+  (spit file-name  (pr (-> model& deref (get Key)))))
+
 
 (defn load-model [file-name & {:keys [Key] :or {Key :Domain}}]
   (async/take!
    (async/thread
-     (.println System/out (str "loading " (.getName file-name)))
+     (.println System/out (str "loading " (.getName ^java.io.File file-name)))
      (read-string (slurp file-name)))
    (fn [x]
      (try
        (swap! model& assoc Key x)
-       (.println System/out (str "data from " (.getName file-name) " was loaded succesfuly"))
-       (catch Exception e (ppr-str "Error loading Data" (.getMessage e)))))))
+       (.println System/out (str "data from " (.getName ^java.io.File file-name) " was loaded succesfuly"))
+       (catch Exception e (pr "Error loading Data" (.getMessage e)))))))
 
 
-
-(load-model (first  gaussian-2d-functions) :Key :Gaussian)
-
+#_(let [_ (load-model (first  gaussian-2d-functions) :Key :Gaussian)
+        _ (load-model (first  characteristic-functions) :Key :Characteristic)]
+    #_(convolve (:Gaussian @model&)  (:Characteristic @model&)))
 
 #_(def a (async/thread
            (do (println "start of proccessing")

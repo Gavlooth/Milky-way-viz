@@ -7,11 +7,11 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [mount "0.1.11"]
                  [rm-hull/infix "0.3.1"]
+                 [com.taoensso/timbre "4.10.0"]
                  [quil "2.6.0"]
                  [org.clojure/core.async "0.4.474"]
                  [org.clojure/tools.namespace "0.2.11"]
                  [org.apache.commons/commons-math3 "3.6.1"]]
-
   :jvm-opts ["-Xmx4G"])
 
 

@@ -1,1 +1,33 @@
-{:data "data"}
+{:data "data"
+ :timbre-config
+ {:output-fn (fn output-fn [data]
+               (let [{:keys [level ?err #_vargs msg_ ?ns-str ?file hostname_
+                             timestamp_ ?line]} data
+                     ppr-str (fn  [& datum]
+                               (let [o (new java.io.StringWriter)]
+                                 (binding [*out* o]
+                                   (apply clojure.pprint/pprint datum)
+                                   (str o))))]
+                 (str
+                  (force timestamp_)  " "
+                  (force hostname_)  " "
+                  (clojure.string/upper-case (name level))  " "
+                  "[" (or ?ns-str ?file "?") ":" (or ?line "?") "] - "
+                  (ppr-str (force msg_)))))
+  :appenders
+  {:println {:enabled? false}
+   :console-out
+   {:enabled?   true
+    :async?     true
+    :min-level  nil
+    :rate-limit [[1 250] [10 5000]] ; 1/250ms, 10/5s
+    :output-fn  :inherit
+    :fn (fn [data]
+          (let [{:keys [output_]} data
+                formatted-output-str  (force output_)]
+            (.println System/out formatted-output-str)))}}}}
+
+
+
+
+
