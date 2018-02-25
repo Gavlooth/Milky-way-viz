@@ -12,6 +12,6 @@
                  [org.clojure/core.async "0.4.474"]
                  [org.clojure/tools.namespace "0.2.11"]
                  [org.apache.commons/commons-math3 "3.6.1"]]
-  :jvm-opts ["-Xmx4G"])
+  :jvm-opts ["-Xmx6G"])
 
 

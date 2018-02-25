@@ -41,15 +41,17 @@
 
 ; define function which draws spiral
 
+
 (defn draw-spiral [&  {:keys [save] :or {save false}}]
   (q/background 231 5 100)
   (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
-    (let [the-set (functions/multispiral-set [0 (/ PI 2) PI (/ (* 3 PI) 2)] 30 2)]
+    (q/line  -800 0 800 0)
+    (q/line  0 -800 0 800)
+    (let [the-set (functions/multispiral-complement-set [0 (/ PI 2) PI (/ (* 3 PI) 2)] 16 100 2)]
       (doseq [[x y] the-set]
         (q/point  x y))))
-  (q/save  (str (uuid) "-milky-way.png"))
+  #_(q/save  (str (uuid) "---milky-way.png"))
   (when save (q/save  (str (uuid) "-milky-way.png"))))
-
 
 #_(defn draw-spiral-complement [&  {:keys [save] :or {save false}}]
   ; move origin point to centre of the sketch

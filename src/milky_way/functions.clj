@@ -26,7 +26,7 @@
 (def model& (atom {:Domain nil}))
 
 
-(def step 0.001)
+(def step 0.003)
 (def start 0.001)
 (def finish (- PI step))
 (def opts {:A 800 :B 0.4 :N 5})
@@ -56,7 +56,7 @@
                  :Sech #(/ -1 (FastMath/pow ^double (FastMath/cosh %) 2))
                  :**  #(FastMath/pow ^double % 2)
                  :*n   #(FastMath/pow ^double % ^double %2)
-                 :convolve   #(MathArrays/convolve (long-array %) (long-array %2))})
+                 :Convolve   #(MathArrays/convolve (long-array %) (long-array %2))})
 
 
 (defn build-gaussian
@@ -133,25 +133,30 @@
                                   (if (> a' item-number)
                                     a (recur a')))))
             the-array (double-array (map :y (subvec the-seq 0 least-quadratic)))]
-        (let [the-transform-type  (cond  (= "FORWARD" transform-name)  TransformType/FORWARD
-                                         (= "INVERSE" transform-name)  TransformType/INVERSE
+        (let [the-transform-type  (cond  (= "FORWARD" transform-name)
+                                         TransformType/FORWARD
+                                         (= "INVERSE" transform-name)
+                                         TransformType/INVERSE
                                          :default "invalid")]
           (if (= the-transform-type "invalid")
-            (.println System/out "Invalid transform type. Please insert either \"forward\" or \"inverse\" ")
+            (timbre/info
+             "Invalid transform type. Please insert either \"forward\" or \"inverse\" ")
             (map #(assoc % :y (.getReal ^org.apache.commons.math3.complex.Complex  %2))
-                 the-seq (vec (.transform fft-fun the-array the-transform-type)))))))))
+                 the-seq (vec (.transform ^org.apache.commons.math3.transform.FastFourierTransformer fft-fun the-array ^org.apache.commons.math3.transform.TransformType the-transform-type)))))))))
 
 
 (defn convolve [seq-1 seq-2]
   (let [transform-1 (fast-fourier-transform seq-1)
         transform-2 (fast-fourier-transform seq-2)]
-    (timbre/log :debug "point wise multiplication started")
+    (timbre/info "point wise multiplication started")
     (let [point-wise-multiplication
           (mapv  #(update % :y (fn [y] (+ y (:y %2))))  transform-1 transform-2)]
-      (timbre/log :debug "point wise multiplication finished")
-      (timbre/log :debug "convolution started")
-      (swap! model& assoc :Convolution (fast-fourier-transform point-wise-multiplication :transform-type :inverse))
-      (timbre/log :debug "convolution finished"))))
+      (timbre/info "point wise multiplication finished")
+      (timbre/info "convolution started")
+      (swap! model& assoc :Convolution (fast-fourier-transform
+                                        point-wise-multiplication
+                                        :transform-type :inverse))
+      (timbre/info "convolution finished"))))
 
 
 (defn spiral
@@ -203,13 +208,16 @@
       (for [phi (range (* -1  (/ width 2)) (/ width 2) (/ 1 density))]
         [phi (* -1   k)]))))
 
+#_(concat  (range (* -1 outer) (* -1 inner)  (/ 1 density))
+           (range   inner  outer  (/ 1 density)))
 
-(defn bar-set-complement [&  [x opts outer inner  density]]
-  (let [b   (spiral x opts) abs (:Abs functions)]
-    (for [k  (range 0  (abs  b) step)]
-      (for [phi (concat  (range (* -1 outer) (* -1 inner)  (/ 1 density))
-                         (range   inner  outer  (/ 1 density)))]
-        [phi (* -1   k)]))))
+
+(defn bar-set-complement [&  [x opts start density]]
+  (let [abs (:Abs functions)
+        b (abs  (spiral x opts))]
+    (for [k  (range start b step)]
+      (for [phi (range (* -1 b) (* -1 start)  (/ 1 density))]
+        [phi (* -1  k)]))))
 
 
 
@@ -236,8 +244,9 @@
               (normal-vector  phi opts  ksi)))))
 
 
+;; (functions/multispiral-complement-set [0 (/ PI 2) PI (/ (* 3 PI) 2)] 16 100 2)
 (defn single-spiral-complement-set [outer inner density]
-  (concat (bar-set-complement start opts  outer inner density)
+  (concat (bar-set-complement start opts inner density)
           (for [phi (range start finish step)]
             (for [ksi (concat  (range (* -1 outer) (* -1 inner)  (/ 1 density))
                                (range   inner  outer  (/ 1 density)))]
@@ -259,13 +268,13 @@
 
 (defn multispiral-complement-set  [angles inner outer density]
   (let [the-spiral (single-spiral-complement-set outer inner density)]
-    (apply concat    (mapcat #(rotate-spiral % the-spiral)  angles))))
+    (apply concat (mapcat #(rotate-spiral % the-spiral)  angles))))
 
 
 (defn basic-spiral []
   (swap! model& assoc  :Domain
-         [(vec (apply concat (multispiral-set angles 32 2)))
-          (vec (apply concat  (multispiral-complement-set angles 16 100 2)))]))
+         [(vec (multispiral-set angles 32 2))
+          (vec (multispiral-complement-set angles 16 100 2))]))
 
 
 (defn build-characteristic  []
@@ -288,9 +297,9 @@
                        :x (concat (map #(hash-map :x % :y 1) the-set)
                                   (map #(hash-map :x % :y 0)
                                        the-complement)))))))
-        (.println System/out (str "characteristic was exported succesfuly"))
-        (catch Exception e (.println System/out (str "Error loading Data " (.getMessage e))))))
-    (.println System/out (str "generation of points started"))))
+        (timbre/info (str "characteristic was exported succesfuly"))
+        (catch Exception e (timbre/info (str "Error loading Data " (.getMessage e))))))
+    (timbre/info (str "generation of points started"))))
 
 
 (defn build-2d-gaussian-graph
@@ -308,9 +317,9 @@
                          :x (map (fn [x] (hash-map
                                           :x x :y (the-gaussian x)))
                                  domain))))))
-           (.println System/out (str "gaussian was exported succesfuly"))
-           (catch Exception e (.println System/out (str "Error loading Data" (.getMessage e))))))
-       (.println System/out (str "generation of points started"))))))
+           (timbre/info (str "gaussian was exported succesfuly"))
+           (catch Exception e (timbre/info (str "Error loading Data" (.getMessage e))))))
+       (timbre/info (str "generation of points started"))))))
 
 
 (defn save-model  [file-name & {:keys [Key] :or {Key :Domain}}]
@@ -321,13 +330,13 @@
 (defn load-model [file-name & {:keys [Key] :or {Key :Domain}}]
   (async/take!
    (async/thread
-     (.println System/out (str "loading " (.getName ^java.io.File file-name)))
+     (timbre/info (str "loading " (.getName ^java.io.File file-name)))
      (read-string (slurp file-name)))
    (fn [x]
      (try
        (swap! model& assoc Key x)
-       (.println System/out (str "data from " (.getName ^java.io.File file-name) " was loaded succesfuly"))
-       (catch Exception e (pr "Error loading Data" (.getMessage e)))))))
+       (timbre/info (str "data from " (.getName ^java.io.File file-name) " was loaded succesfuly"))
+       (catch Exception e (timbre/info  (str "Error loading Data" (.getMessage e))))))))
 
 
 #_(let [_ (load-model (first  gaussian-2d-functions) :Key :Gaussian)
@@ -335,6 +344,6 @@
     #_(convolve (:Gaussian @model&)  (:Characteristic @model&)))
 
 #_(def a (async/thread
-           (do (println "start of proccessing")
+           (do (timbre/info "start of proccessing")
                (let [b (forward-fft (:Gaussian @model&))]
-                 (println "end of proccessing") b))))
+                 (timbre/info "end of proccessing") b))))
