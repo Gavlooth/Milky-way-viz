@@ -1,8 +1,10 @@
 (ns milky-way.functions
   (:require [clojure.java.io :as io]
+            [clojure.edn :as edn]
             [clojure.core.async :as async :refer [>!! <!!]]
             [taoensso.timbre :as timbre :refer [spy]])
-  (:import (org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian)
+  (:import (java.io BufferedReader PushbackReader FileReader IOException )
+           (org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian)
            (org.apache.commons.math3.transform FastFourierTransformer DftNormalization TransformType)
            (org.apache.commons.math3.util FastMath)
            (org.apache.commons.math3.util MathArrays)))
@@ -12,7 +14,7 @@
 
 (-> "config.edn" slurp read-string :timbre-config eval timbre/merge-config!)
 
-
+;(println "test")
 (let [data-folder (-> "config.edn" slurp read-string :data)]
   (def domains (rest (file-seq (io/file data-folder "domains"))))
   (def spiral-sets (rest (file-seq (io/file data-folder "spiral-sets"))))
@@ -33,7 +35,14 @@
 (def angles [0 (/ PI 2) PI (/ (* 3 PI) 2)])
 
 
-
+(defn file-print [file-name output ]
+  (try
+    (with-open [w (io/writer (io/file  file-name))]
+      (binding  [*out* w]
+        (timbre/info  (str  "Writting file " file-name))
+        (pr output ))
+      (timbre/info (str  "Finished writting " file-name)))
+    (catch Exception  e (timbre/info (str "error: " (.getMessage e))))))
 
 
 (declare build-gaussian)
@@ -148,16 +157,17 @@
 (defn convolve [seq-1 seq-2]
   (let [transform-1 (fast-fourier-transform seq-1)
         transform-2 (fast-fourier-transform seq-2)]
-    (timbre/info "point wise multiplication started")
+    (timbre/info "point-wise multiplication started")
     (let [point-wise-multiplication
           (mapv  #(update % :y (fn [y] (+ y (:y %2))))  transform-1 transform-2)]
       (timbre/info "point wise multiplication finished")
-      (timbre/info "convolution started")
-      (swap! model& assoc :Convolution (fast-fourier-transform
-                                        point-wise-multiplication
-                                        :transform-type :inverse))
-      (timbre/info "convolution finished"))))
+      (async/thread
+        (timbre/info "convolution started")
+        (let  [convolved   (fast-fourier-transform point-wise-multiplication :transform-type :inverse)]
+          (timbre/info "convolution finished")
+          convolved)))))
 
+;; (swap! model& assoc :Convolution )
 
 (defn spiral
   ([x] (spiral {}))
@@ -293,13 +303,13 @@
       (try
         (with-open [w (io/writer file-name)]
           (binding  [*out* w]
-            (pr  (vec (sort-by
-                       :x (concat (map #(hash-map :x % :y 1) the-set)
-                                  (map #(hash-map :x % :y 0)
-                                       the-complement)))))))
+            (pr (vec (sort-by
+                      :x (concat (map #(hash-map :x % :y 1) the-set)
+                                 (map #(hash-map :x % :y 0)
+                                      the-complement)))))))
         (timbre/info (str "characteristic was exported succesfuly"))
         (catch Exception e (timbre/info (str "Error loading Data " (.getMessage e))))))
-    (timbre/info (str "generation of points started"))))
+    (timbre/info (str "generation of characteristic function points started"))))
 
 
 (defn build-2d-gaussian-graph
@@ -319,26 +329,42 @@
                                  domain))))))
            (timbre/info (str "gaussian was exported succesfuly"))
            (catch Exception e (timbre/info (str "Error loading Data" (.getMessage e))))))
-       (timbre/info (str "generation of points started"))))))
+       (timbre/info (str "generation of gaussian function points started"))))))
 
 
 (defn save-model  [file-name & {:keys [Key] :or {Key :Domain}}]
   {:pre [string? file-name keyword? Key]}
-  (spit file-name  (pr (-> model& deref (get Key)))))
+  (async/thread
+    (try
+      (timbre/info (str "exporting to file " file-name))
+      (with-open [w (io/writer file-name)]
+        (binding  [*out* w]
+          (pr (get @model& Key))))
+      (timbre/info (str  file-name "successfully written to disk"))
+      (catch Exception e (timbre/info (str "Error writting data to disk " (.getMessage e)))))))
 
 
 (defn load-model [file-name & {:keys [Key] :or {Key :Domain}}]
-  (async/take!
-   (async/thread
-     (timbre/info (str "loading " (.getName ^java.io.File file-name)))
-     (read-string (slurp file-name)))
-   (fn [x]
-     (try
-       (swap! model& assoc Key x)
-       (timbre/info (str "data from " (.getName ^java.io.File file-name) " was loaded succesfuly"))
-       (catch Exception e (timbre/info  (str "Error loading Data" (.getMessage e))))))))
+  (let [the-file (io/file file-name)]
+    (async/take!
+     (async/thread
+       (timbre/info (str "loading " (.getName ^java.io.File the-file)))
+       (with-open [input (PushbackReader. (io/reader the-file))]
+         (into []  (repeatedly (partial edn/read {:eof :theend} input)))))
+     (fn [x]
+       (try
+         (swap! model& assoc Key x)
+         (timbre/info (str "data from " (.getName ^java.io.File the-file) " was loaded succesfuly"))
+         (catch Exception e (timbre/info  (str "Error loading Data" (.getMessage e)))))))))
 
 
+
+#_(with-open [input (PushbackReader. (io/reader "gaussian-01.edn"))]
+    (let [edn-seq (repeatedly (partial edn/read {:eof :theend} input))]
+      (timbre/info (first  (first edn-seq)))))
+
+#_(do (basic-spiral))
+#_(load-model "gaussian-01.edn" :Key :Gaussian)
 #_(let [_ (load-model (first  gaussian-2d-functions) :Key :Gaussian)
         _ (load-model (first  characteristic-functions) :Key :Characteristic)]
     #_(convolve (:Gaussian @model&)  (:Characteristic @model&)))
@@ -347,3 +373,53 @@
            (do (timbre/info "start of proccessing")
                (let [b (forward-fft (:Gaussian @model&))]
                  (timbre/info "end of proccessing") b))))
+
+(defn convolve-from-files [file-1 file-2 & {fout :print-file}]
+  (with-open [in-1 (-> file-1 (io/file) (FileReader.) ( BufferedReader.) (PushbackReader.))
+              in-2 (-> file-2 (io/file) (FileReader.) ( BufferedReader.) (PushbackReader.))]
+    (let [seq-1 (edn/read {:eof :theend} in-1)
+          seq-2 (edn/read {:eof :theend} in-2) ]
+      (let [transform-1 (fast-fourier-transform seq-1)
+            transform-2 (fast-fourier-transform seq-2)]
+        (timbre/info "point-wise multiplication started")
+        (let [point-wise-multiplication
+              (mapv  #(update % :y (fn [y] (+ y (:y %2))))  transform-1 transform-2)]
+          (timbre/info "point wise multiplication finished")
+          (async/thread
+            (timbre/info "convolution started")
+            (if fout
+              (try
+                (with-open [w (io/writer fout)]
+                  (binding  [*out* w]
+                    (pr (fast-fourier-transform point-wise-multiplication :transform-type :inverse)))
+                  (timbre/info "convolution finished"))
+                (catch IOException  e (timbre/info (str "Couldn't operate on " fout ", error: " (.getMessage e))))))
+            (let  [convolved   (fast-fourier-transform point-wise-multiplication :transform-type :inverse)]
+              (timbre/info "convolution finished")
+              convolved)))))))
+
+(defn point-wise-convolution [file-1 file-2 & {fout :print-file}]
+  (with-open [in-1 (-> file-1 (io/file) (FileReader.) ( BufferedReader.) (PushbackReader.))
+              in-2 (-> file-2 (io/file) (FileReader.) ( BufferedReader.) (PushbackReader.))]
+    (let [seq-1 (mapv :y  (edn/read {:eof :theend} in-1))
+          seq-2 (mapv :y  (edn/read {:eof :theend} in-2))
+          convolution-fn (:Convolve functions) ]
+      (if fout (file-print fout (mapv (fn [y {:keys [x]}] {:x x :y y} (vec (convolution-fn seq-1 seq-1)) (in-1))))
+        (mapv (fn [y {:keys [x] } ] {:x x :y y} (vec (convolution-fn seq-1 seq-1)) (in-1)))))))
+
+#_(convolve-from-files "characteristic-01.edn" "gaussian-01.edn" :print-file "convolution.edn" )
+
+;; (with-open [buffer-reader (->   "gaussian-01.edn" (io/file) (FileReader.) ( BufferedReader.) (java.io.PushbackReader.) )
+;;             input (java.io.PushbackReader. buffer-reader )]
+;;     (let [edn-seq (repeatedly (partial edn/read {:eof :theend} input))]
+;;       (timbre/info  (first edn-seq))))
+;;  (defn load-edn
+;;   "Load edn from an io/reader source (filename or io/resource)."
+;;   [source]
+;;   (try
+;;     (with-open [r (io/reader source)]
+;;       (edn/read (java.io.PushbackReader. r)))
+;;     (catch java.io.IOException e
+;;       (printf "Couldn't open '%s': %s\n" source (.getMessage e)))))
+;;     (catch RuntimeException e
+;;       (printf "Error parsing edn file '%s': %s\n" source (.getMessage e)))
