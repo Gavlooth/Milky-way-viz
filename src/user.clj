@@ -11,7 +11,7 @@
 
 (defn start []
   (mount/start
-   #'milky-way.core/run))             ;; example on how to start app with certain states
+    #'milky-way.core/run))             ;; example on how to start app with certain states
 
 (defn stop []
   (mount/stop))
@@ -28,7 +28,9 @@
   "starts all states defined by defstate"
   [& {:keys [draw]}]
   (start)
-  (run :draw draw) :ready)
+  ;;#_(run :draw draw) :ready
+
+  )
 
 (defn reset
   "stops all states defined by defstate, reloads modified source files, and restarts the states"
