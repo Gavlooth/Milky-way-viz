@@ -5,7 +5,10 @@
             [clojure.set :refer [rename-keys]]
             [cheshire.core :refer [generate-stream]]
             [taoensso.timbre :as timbre :refer [spy]]
-            [taoensso.tufte :as tufte :refer (defnp p profiled profile)]  )
+            [taoensso.tufte :as tufte :refer (defnp p profiled profile)]
+            [milky-way.data-manipulation :refer [csv-stream save-csv]  ]
+            [milky-way.utils :refer [file-print]])
+
   (:import (java.io BufferedReader PushbackReader FileReader IOException )
            (org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian)
            (org.apache.commons.math3.transform FastFourierTransformer DftNormalization TransformType)
@@ -38,20 +41,9 @@
 (def opts {:A 800 :B 0.4 :N 5})
 (def angles [0 (/ PI 2) PI (/ (* 3 PI) 2)])
 
-(defn char-seq
-  [^java.io.BufferedReader rdr]
-  (let [chr (.read rdr)]
-    (when-not (= chr -1)
-      (cons (char chr) (lazy-seq  (char-seq rdr))))))
 
-(defn file-print [file-name output & {:keys [append]} ]
-  (try
-    (with-open [w (io/writer (io/file  file-name) :append append)]
-      (binding  [*out* w]
-        (timbre/info  (str  "Writting file " file-name))
-        (pr output ))
-      (timbre/info (str  "Finished writting " file-name)))
-    (catch Exception  e (timbre/info (str "error: " (.getMessage e))))))
+
+
 
 (defn parse-file [file-1]
   (try
@@ -395,7 +387,6 @@
          (timbre/info (str "file-sorted"))
          (catch Exception e (timbre/info (str "Error" (.getMessage e)))))) )
 
-#_(sort-by-x "fft-gaussian-01.edn" "fft-gaussian.edn"  )
 
 (defn save-model  [file-name & {:keys [Key] :or {Key :Domain}}]
   {:pre [string? file-name keyword? Key]}
@@ -525,42 +516,9 @@
 
 
 
-#_(async/thread  (doseq [i [0 1 2 3 4]]  (point-wise-multiplication (str  "/mnt/10E3-FF70/fft-gaussian.edn--" i)
-                                                                   (str  "/mnt/10E3-FF70/fft-characteristic.edn--" i)
-                                                                   (str  "/mnt/10E3-FF70/FFT-spiral.edn--"i))))
-#_(file->fft "characteristic-01.edn" "fft-characteristic-01.edn")
-#_(with-open [input  (-> file-1 (io/file) (FileReader.) ( BufferedReader.) (PushbackReader.)) #_(PushbackReader. (io/reader "gaussian-01.edn"))]
-    (let [edn-seq (repeatedly (partial edn/read {:eof :theend} input))]
-      (timbre/info (first  (first edn-seq)))))
-#_(do (basic-spiral))
-#_(load-model "spiral-01.edn" :Key :Domain)
-#_(load-model "gaussian-01.edn" :Key :Gaussian)
-#_(let [_ (load-model (first  gaussian-2d-functions) :Key :Gaussian)
-        _ (load-model (first  characteristic-functions) :Key :Characteristic)]
-    #_(convolve (:Gaussian @model&)  (:Characteristic @model&)))
-#_(build-2d-gaussian-graph-from-file "spiral-01.edn"  "gaussian-01.edn"   )
-#_(def a (async/thread
-           (do (timbre/info "start of proccessing")
-               (let [b (forward-fft (:Gaussian @model&))]
-                 (timbre/info "end of proccessing") b))))
-
-#_(point-wise-multiplication "fft-gaussian-01.edn" "fft-characteristic-01.edn"  "pre-final.edn")
-#_(build-gaussian-graph-from-file "spiral-01.edn" "gaussian-01.edn" )
-#_(convolve-from-files "characteristic-01.edn" "gaussian-01.edn" :print-file "convolution.edn" )
-#_(-> domain-file (io/file) (FileReader.) ( BufferedReader.) (PushbackReader.))
 
 
 
-
-#_(async/thread
-    (timbre/info "started")
-    (doseq [i [0 1 2 3 4]]
-      (with-open [the-spiral  (PushbackReader. (io/reader (io/file (str  "/mnt/10E3-FF70/FFT-spiral.edn--" i)) ))]
-        (with-open [w (io/writer "/mnt/10E3-FF70/fft-the-spiral.edn" :append true)]
-          (binding [*out* w]
-            (doseq [x (read  {:eof :theend} the-spiral) ]
-              (pr x)))
-          (timbre/info (str "file no " i " written succesfully"))))))
 
 
 #_(async/thread
@@ -572,33 +530,8 @@
         (print \]))))
 
 
-#_(async/thread
-    (timbre/info "started")
-    (with-open [the-file (PushbackReader. (io/reader (io/file (str  "/mnt/10E3-FF70/function.edn" ))))]
-      (with-open [w (io/writer "/mnt/10E3-FF70/function.json"  ) ]
-        (generate-stream (map #(rename-keys % {:x "point" :y "probability"}) (read  {:eof :theend} the-file)) w)))
-    (timbre/info "operation completed"))
 
 
-#_(def the-file (char-seq (io/reader (str  "/mnt/10E3-FF70/fft-the-spiral.edn" ))) )
-#_(async/thread (timbre/info (count (filter #{\(} the-file ))))
-#_(async/thread  (file->fft "/mnt/10E3-FF70/fft-function.edn" "/mnt/10E3-FF70/function.edn" :transform-type "inverse"  ))
-#_(with-open [the-spiral  (PushbackReader. (io/reader (io/file "/mnt/10E3-FF70/inverse-the-spiral.edn" ) ))]
-      (timbre/info (count (read  {:eof :theend} the-spiral))))
-#_(async/thread
-    (timbre/info "started")
-    (with-open [the-spiral  (PushbackReader. (io/reader (io/file "/mnt/10E3-FF70/fft-the-spiral-final.edn" ) ))]
-      (timbre/info (count (read  {:eof :theend} the-spiral))))
-    (with-open [the-spiral  (PushbackReader. (io/reader (io/file "/mnt/10E3-FF70/fft-gaussian.edn" ) ))]
-      (timbre/info (count (read  {:eof :theend} the-spiral))))
-    (with-open [the-spiral  (PushbackReader. (io/reader (io/file "/mnt/10E3-FF70/fft-characteristic.edn" ) ))]
-      (timbre/info (count (read  {:eof :theend} the-spiral)))))
-#_(async/thread
-    (timbre/info "started")
-    (with-open [the-spiral  (PushbackReader. (io/reader (io/file "/mnt/10E3-FF70/fft-the-spiral.edn" ) ))]
-      (timbre/info (count (read  {:eof :theend} the-spiral))))
-    (with-open [the-spiral  (PushbackReader. (io/reader (io/file "/mnt/10E3-FF70/fft-the-spiral-final.edn" ) ))]
-      (timbre/info (count (read  {:eof :theend} the-spiral)))))
 #_(async/thread
     (timbre/info "started")
     (doseq [i [0 1 2 3 4]]

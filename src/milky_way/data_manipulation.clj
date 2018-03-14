@@ -1,48 +1,23 @@
 (ns milky-way.data-manipulation
   (:require
+    [milky-way.utils :as utils]
     [clojure.java.io :as io]
     [camel-snake-kebab.core :refer [->kebab-case]]
     [clojure.core.async :as async :refer [>!! <!!]]
     [clojure.java.io :as io]
     [clojure.spec.alpha :as s]
     [clojure.string :as str]
-
-            [taoensso.timbre :as timbre :refer [spy]]
+    [taoensso.timbre :as timbre :refer [spy]]
     [taoensso.tufte :as tufte :refer (defnp p profiled profile)]
     [kixi.stats.core :refer  [standard-deviation correlation correlation-matrix]])
   (:import (java.io BufferedReader PushbackReader FileReader IOException )
-
            (org.apache.commons.lang3 StringUtils)) )
 
 (set! *warn-on-reflection* true)
 
-(def ->?double
-  (s/conformer
-   (fn [x]
-     (cond
-       (integer? x) x
-       (string? x)  (try
-                      (Double/parseDouble x)
-                      (catch Exception _
-                        :clojure.spec.alpha/invalid))
-       :else :clojure.spec.alpha/invalid))))
 
 
-(def ->?integer
-  (s/conformer
-   (fn  [x]
-     (cond
-       (integer? x) x
-       (string? x)  (try
-                      (Integer/parseInt (StringUtils/removeEnd  x ".0"))
-                      (catch Exception _
-                        :clojure.spec.alpha/invalid))
-       :else :clojure.spec.alpha/invalid))))
-
-;; (clojure.reflect/reflect StringUtils)
-
-;; Load the resources. TODO move data from resources to data/ folder
-
+;;String operations
 
 (defn- reshape-string [st]
   "Convert strings to valid clojure keywords"
@@ -54,45 +29,59 @@
          (->kebab-case)
          (keyword)))
 
+;;StringUtils/split does not use regex hence is much faster
 (defn split-csv-line [a-line]
- (vec (StringUtils/split   a-line  "," )))
+ (vec (StringUtils/split  ^java.lang.String a-line  "," )))
 
 
 (defn csv-head->labels [head]
-(map reshape-string (split-csv-line head)) )
+(mapv reshape-string (split-csv-line head)) )
 
+;TODO  change to {:labels {:strings :keywords}}
 (defn csv->data [[head & tail]]
-  {:string-labesl (split-csv-line head )
+  (defn csv->data [[head & tail]]
+    {:labels {:strings (split-csv-line head )
+              :keywords   (csv-head->labels head)}
+     :data tail })
+  {:string-labels (split-csv-line head )
    :keyword-labels  (csv-head->labels head)
    :data tail })
 
-;;maybe this should be a record
+;;TODO check if this should be a record
+
+
+
 (defn csv-stream [file-name & {:keys [labels] :or {labels "keyword"}}]
-  {:pre [string? file-name]}
   (let  [the-reader  (io/reader (io/input-stream (io/file file-name)))
-         _ (timbre/info (type the-reader))
          csv-data (csv->data (line-seq the-reader))
-         labels (if (= "STRING" (StringUtils/upperCase (name labels)))  (:string-labels csv-data)
-                  (:keyword-labels csv-data))]
-    {:labels (:string-labels csv-data)
-      :data   (mapv (fn [x] (zipmap labels (split-csv-line  x))) (:data csv-data))
-      :stream-closer #(.close ^java.io.BufferedReader the-reader)}))
+         labels (if (= "STRING" (str/upper-case (name labels)))
+                  (-> csv-data :labels :strings)
+                  (-> csv-data :labels :keywords))]
+  (timbre/info (with-out-str (println labels)) )
+    {:labels (:labels csv-data)
+     :data   (mapv (fn [x] (apply array-map (interleave labels (split-csv-line  x)))) (:data csv-data))
+     :stream-closer #(.close ^java.io.BufferedReader the-reader)}))
 
-#_(def pipa  (csv-stream (str "data/FL_insurance_sample.csv" ) ) )
-#_(vec  (let [ [head & tail] pipa] (StringUtils/Split (first pipa) \, )  ))
 
-#_(defn load-model [file-name & {:keys [Key] :or {Key :Domain}}]
-  (let [the-file (io/file file-name)]
-    (async/take!
-     (async/thread
-       (timbre/info (str "loading " (.getName ^java.io.File the-file)))
-       (with-open [input (PushbackReader. (io/reader the-file))]
-         (into []  (edn/read {:eof :theend} input))))
-     (fn [x]
-       (try
-         (swap! model& assoc Key x)
-         (timbre/info
-           (str "data from " (.getName ^java.io.File the-file)
-                " was loaded succesfuly"))
-         (catch Exception e (timbre/info (str "Error loading Data" (.getMessage e)))))))))
+(def test-csv-stream
+  (update  (csv-stream utils/csv-test) :data #(mapv vals %) ))
 
+(s/fdef csv-stream
+        :args (s/and  (s/cat :file-name string? :labels (some-fn keyword? string? symbol?)  )))
+
+(defn save-csv [file-name  {data :data {:keys [ strings keywords]} :labels }]
+  (async/thread
+    (try
+      (timbre/info (str "exporting to file " file-name))
+      (with-open [w (io/writer file-name)]
+        (binding  [*out* w]
+          (print (str/join  ","  strings) )
+          (doseq [line data]
+            (print \newline )
+            (print (str/join   ","  line) ))))
+      (timbre/info (str  file-name "successfully written to disk"))
+      (catch Exception e (timbre/info (str "Error writting data to disk " (.getMessage e)))))))
+
+
+#_(s/fdef csv-stream
+        :args (s/and  (s/cat :file-name string? :labels (some-fn keyword? string? symbol?)  )))
