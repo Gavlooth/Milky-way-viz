@@ -15,41 +15,60 @@
 
 (set! *warn-on-reflection* true)
 
+(defn chop-end [a-string] (StringUtils/chop ^java.lang.String a-string ))
 
+(defn chop-start [a-string] (.substring ^java.lang.String  a-string 1))
 
-;;String operations
+;; (defmacro inspect  )
+
+(defn split [a-string sep]
+  (vec
+    (StringUtils/split
+      ^java.lang.String a-string ^java.lang.String sep)))
+
+(defn build-vector-parser
+  ([] (build-vector-parser identity))
+  ([parser-fns]
+   (let [parser (if (coll? parser-fns)
+                  (fn [x]  (mapv #(%2 %1) x (cycle parser-fns)))
+                  (fn [x]  (mapv #(%2 %1) x (cycle [parser-fns]))))]
+     (fn [a-string]
+       (-> a-string  (chop-start) (chop-end) (split " ") (parser))))))
+
 
 (defn- reshape-string [st]
   "Convert strings to valid clojure keywords"
   (-> st (StringUtils/replace "(" "<")
-         (StringUtils/replace  ")" ">")
-         (StringUtils/replace  "/" "-per-")
-         (StringUtils/replace  "/" "-per-")
-         (StringUtils/replace  ":" ".")
-         (->kebab-case)
-         (keyword)))
+      (StringUtils/replace  ")" ">")
+      (StringUtils/replace  "/" "-per-")
+      (StringUtils/replace  "/" "-per-")
+      (StringUtils/replace  ":" ".")
+      (->kebab-case)
+      (keyword)))
 
 ;;StringUtils/split does not use regex hence is much faster
 (defn split-csv-line [a-line]
  (vec (StringUtils/split  ^java.lang.String a-line  "," )))
-
 
 (defn csv-head->labels [head]
 (mapv reshape-string (split-csv-line head)) )
 
 ;TODO  change to {:labels {:strings :keywords}}
 (defn csv->data [[head & tail]]
+
+
   (defn csv->data [[head & tail]]
     {:labels {:strings (split-csv-line head )
               :keywords   (csv-head->labels head)}
      :data tail })
-  {:string-labels (split-csv-line head )
+  {:string-labels (split-csv-line head)
    :keyword-labels  (csv-head->labels head)
    :data tail })
 
 ;;TODO check if this should be a record
 
-
+(defn array-zipmap [array-1 array-2]
+  (apply array-map (interleave  array-1 array-2 )))
 
 (defn csv-stream [file-name & {:keys [labels] :or {labels "keyword"}}]
   (let  [the-reader  (io/reader (io/input-stream (io/file file-name)))
@@ -57,9 +76,10 @@
          labels (if (= "STRING" (str/upper-case (name labels)))
                   (-> csv-data :labels :strings)
                   (-> csv-data :labels :keywords))]
-  (timbre/info (with-out-str (println labels)) )
     {:labels (:labels csv-data)
-     :data   (mapv (fn [x] (apply array-map (interleave labels (split-csv-line  x)))) (:data csv-data))
+     :data   (mapv (fn [x] (apply array-map
+                                  (interleave labels (split-csv-line  x))))
+                   (:data csv-data))
      :stream-closer #(.close ^java.io.BufferedReader the-reader)}))
 
 

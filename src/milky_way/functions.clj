@@ -6,9 +6,8 @@
             [cheshire.core :refer [generate-stream]]
             [taoensso.timbre :as timbre :refer [spy]]
             [taoensso.tufte :as tufte :refer (defnp p profiled profile)]
-            [milky-way.data-manipulation :refer [csv-stream save-csv]  ]
-            [milky-way.utils :refer [file-print]])
-
+            [milky-way.data-manipulation :refer [split-csv-line  csv-stream save-csv build-vector-parser csv-head->labels array-zipmap ]]
+            [milky-way.utils :refer [file-print chunked-line-seq] :as utils])
   (:import (java.io BufferedReader PushbackReader FileReader IOException )
            (org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Gaussian)
            (org.apache.commons.math3.transform FastFourierTransformer DftNormalization TransformType)
@@ -21,7 +20,7 @@
 (-> "config.edn" slurp read-string :timbre-config eval timbre/merge-config!)
 
 
-(let [data-folder (-> "config.edn" slurp read-string :data)]
+#_(let [data-folder (-> "config.edn" slurp read-string :data)]
   (def domains (rest (file-seq (io/file data-folder "domains"))))
   (def spiral-sets (rest (file-seq (io/file data-folder "spiral-sets"))))
   (def characteristic-functions (rest  (file-seq (io/file data-folder "characteristic-functions"))))
@@ -42,16 +41,6 @@
 (def angles [0 (/ PI 2) PI (/ (* 3 PI) 2)])
 
 
-
-
-
-(defn parse-file [file-1]
-  (try
-    (with-open [input  (-> file-1 (io/file) (FileReader.) ( BufferedReader.) (PushbackReader.))]
-      (timbre/info (str "coersing file " file-1 " to sequence")  )
-      (let [the-seq (seq (repeatedly (partial edn/read {:eof :theend} input)))]
-        (timbre/info (str file-1 " parsed!") the-seq)))
-    (catch Exception  e (timbre/info (str "error: " (.getMessage e))))))
 
 (declare build-gaussian)
 (declare spiral)
@@ -83,7 +72,7 @@
    (let [gaussian (if norm (Gaussian. norm mean standard-deviation)
                       (Gaussian. mean standard-deviation))]
      (fn [x]
-       (.value ^org.apache.commons.math3.analysis.function.Gaussian gaussian  ^double (double  x))))))
+       (.value ^org.apache.commons.math3.analysis.function.Gaussian gaussian ^double (double  x))))))
 
 
 (defn build-2d-gaussian
@@ -294,84 +283,84 @@
                  (vec (multispiral-complement-set angles 16 100 2))])))
 
 
-(defn build-characteristic  []
-  (when-let [[the-set the-complement] (:Domain @model&)]
-    (memoize
+(defn build-basic-spiral  []
+  (async/thread
+    (timbre/info "generating spiral")
+    (let [the-spiral [(vec (multispiral-set angles 32 2))
+                      (vec (multispiral-complement-set angles 16 100 2))]
+          _ (timbre/info "spiral generated succesfully ")]
+      the-spiral)))
+
+(defn build-characteristic  [the-vec]
+  (when-let [[the-set the-complement] the-vec ]
      (fn [x]
        (cond (some #(x) the-set) 1
              (some #(x) the-complement) 0
-             :default "NaN")))))
+             :default "NaN"))))
 
 
-#_(defn build-characteristic-graph  [file-name]
-  {:pre [string? file-name]}
-  (when-let [[the-set the-complement]  (:Domain @model&)]
-    (async/thread
-      (try
-        (with-open [w (io/writer file-name)]
-          (binding  [*out* w]
-            (pr (vec (concat (map #(hash-map :x % :y 1) the-set)
-                                 (map #(hash-map :x % :y 0)
-                                      the-complement))))))
-        (timbre/info (str "characteristic was exported succesfuly"))
-        (catch Exception e (timbre/info (str "Error " (.getMessage e))))))
-    (timbre/info (str "generation of characteristic function points started"))))
+(defn ->spiral-file [ch file-name]
+  (async/take!
+    ch
+    (fn [[a b]] (save-csv file-name
+                          {:data (vec (sort (concat a b)))
+                           :labels {:strings ["spiral-set"]}}))))
 
 
+(defn load-set [file-name]
+  (let [csv-seq  (csv-stream file-name)
+        parser  (build-vector-parser  #(Double/parseDouble %) ) ]
+    (update csv-seq :data #(map parser %))))
 
-#_(defn build-characteristic-graph-from-file [domain-file file-name]
-  {:pre [string? file-name string? domain-file]}
-  (async/thread
-    (timbre/info (str "generation of characteristic function points started"))
-    (try
-      (with-open [input (PushbackReader. (io/reader (io/input-stream (io/file  domain-file)) ))  ]
-        (timbre/info (str "opening file " domain-file  )  )
-        (let [[the-set the-complement] (vec (edn/read {:eof :theend} input))]
-          (timbre/info (str domain-file " proccesed"))
-          (with-open [w (io/writer file-name)]
-            (binding  [*out* w]
-              (pr (vec (concat (map #(hash-map :x % :y 1) the-set)
-                                    (map #(hash-map :x % :y 0)
-                                         the-complement))))))))
-      (timbre/info (str "characteristic was exported succesfuly"))
-      (catch Exception e (timbre/info (str "Error" (.getMessage e)))))))
+;
 
-#_(defn build-2d-gaussian-graph
-  ([file-name] (build-2d-gaussian-graph file-name {}))
-  ([file-name opts]
-   {:pre [string? file-name map? opts]}
-   (when-let [[the-set the-complement]  (:Domain @model&)]
-     (let [domain (vec (concat the-set the-complement))
-           the-gaussian (build-2d-gaussian opts)]
+#_(defn load-set-chunked [file-name]
+    (let [[head & tail]  (chunked-line-seq file-name)
+          types [str str double double double double double double double double double double double double str str double  ]
+          labels  (csv-head->labels head)
+          csv->data (comp (map split-csv-line)
+                          (map  #(map (fn [t x] (t x)) (cycle [str]) %))
+                          (map (partial array-zipmap labels)))]
+      (sequence csv->data tail)))
+
+
+(defn save-characteristic [ch file-name]
+  (async/take! ch
+               (fn[[x y]]
+                 (let [data  (vec (concat
+                                    (map #(vector % 1) x)
+                                    (map #(vector % 0) y)))]
+                   (save-csv  file-name {:data data :labels
+                                         {:strings ["x" "y"]}
+                                         :keyords [:x :y] })))))
+
+
+(defn build-2d-gaussian-points
+  ([the-seq] (build-2d-gaussian-points the-seq {}))
+  ([the-seq opts]
+   (let [the-gaussian (build-2d-gaussian opts)]
        (async/thread
          (try
-           (with-open [w (io/writer file-name)]
-             (binding  [*out* w]
-               (pr (mapv (fn [x] (hash-map
-                                          :x x :y (the-gaussian x)))
-                                 domain))))
-           (timbre/info (str "gaussian was exported succesfuly"))
-           (catch Exception e (timbre/info (str "Error loading Data" (.getMessage e))))))
-       (timbre/info (str "generation of gaussian function points started"))))))
+           (timbre/info (str "generation of gaussian function points started"))
+           (let [the-gaussian
+                 (mapv (fn [x] (array-map :x x :y (the-gaussian x))) the-seq)
+                 _  (timbre/info (str "gaussian was generated succesfuly"))])
+           the-gaussian
+           (catch Exception e (timbre/info (str "Error loading Data" (.getMessage e)))))))))
 
-#_(defn build-2d-gaussian-graph-from-file
-  ([domain-file file-name] (build-2d-gaussian-graph-from-file domain-file file-name {}))
-  ([ domain-file file-name opts]
-   {:pre [string? domain-file string? file-name map? opts]}
-   (let [the-gaussian (build-2d-gaussian opts)]
-     (timbre/info (str "generation of gaussian function points started"))
-     (async/thread
-       (try
-         (with-open [input (PushbackReader. (io/reader (io/input-stream (io/file  domain-file)) ))  ]
-           (timbre/info (str "opening file " domain-file  )  )
-           (let [[the-set the-complement]  (vec (edn/read {:eof :theend} input))
-                  domain (vec (concat the-set the-complement))]
-             (timbre/info (str domain-file " proccesed"))
-             (with-open [w (io/writer file-name)]
-               (binding  [*out* w]
-                 (pr (mapv (fn [x] (hash-map :x x :y (the-gaussian x))) domain ))))))
-         (timbre/info (str "gaussian was exported succesfuly"))
-         (catch Exception e (timbre/info (str "Error" (.getMessage e)))))))))
+
+(defn save-gaussian [ch file-name]
+  (async/take! ch
+               (fn [a]
+                 (let [data  (mapv #(vector (:x %) (:y %) )  a)]
+                   (save-csv  file-name {:data data :labels
+                                         {:strings ["x" "y"]}
+                                         :keywords [:x :y] })))))
+
+
+#_(let [points  (:data (load-set "basic-spiral"))
+        ch (build-2d-gaussian-points points)]
+  (save-gaussian ch "gaussian-points"))
 
 
 (defn sort-by-x [input output]
@@ -388,64 +377,13 @@
          (catch Exception e (timbre/info (str "Error" (.getMessage e)))))) )
 
 
-(defn save-model  [file-name & {:keys [Key] :or {Key :Domain}}]
-  {:pre [string? file-name keyword? Key]}
+(defn seq->fft [input output & {:keys [transform-type]}]
   (async/thread
     (try
-      (timbre/info (str "exporting to file " file-name))
-      (with-open [w (io/writer file-name)]
+      (with-open [w (io/writer output)]
         (binding  [*out* w]
-          (pr (get @model& Key))))
-      (timbre/info (str  file-name "successfully written to disk"))
-      (catch Exception e (timbre/info (str "Error writting data to disk " (.getMessage e)))))))
-
-
-(defn load-model [file-name & {:keys [Key] :or {Key :Domain}}]
-  (let [the-file (io/file file-name)]
-    (async/take!
-     (async/thread
-       (timbre/info (str "loading " (.getName ^java.io.File the-file)))
-       (with-open [input (PushbackReader. (io/reader the-file))]
-         (into []  (edn/read {:eof :theend} input))))
-     (fn [x]
-       (try
-         (swap! model& assoc Key x)
-         (timbre/info (str "data from " (.getName ^java.io.File the-file) " was loaded succesfuly"))
-         (catch Exception e (timbre/info  (str "Error loading Data" (.getMessage e)))))))))
-
-
-(defn file->fft [input output & {:keys [transform-type]}]
-  (timbre/info (str "applying fast fourier transform"))
-  (async/thread
-    (try
-      (with-open [in (PushbackReader. (io/reader (io/input-stream (io/file  input)) ))  ]
-        (timbre/info (str "opening file " input)  )
-        (let [the-set (vec (edn/read {:eof :theend} in)) ]
-          (timbre/info (str input " proccesed"))
-          (with-open [w (io/writer output)]
-            (binding  [*out* w]
-              (pr (fast-fourier-transform the-set :transform-type transform-type))))))
+          (pr (fast-fourier-transform input :transform-type transform-type))))
       (timbre/info (str "fast fourier transform calculated succesfully"))
-      (catch Exception e (timbre/info (str "Error" (.getMessage e)))))) )
-
-
-(defn  split-series [input]
-  (timbre/info (str "spliting " input))
-  (async/thread
-    (try
-      (with-open [in (PushbackReader. (io/reader (io/file  input)))  ]
-        (timbre/info (str "opening file " input)  )
-        (let [the-set (edn/read {:eof :theend} in)
-              the-size (count the-set)]
-          (timbre/info (str input " proccesed"))
-          (loop [part  (partition (int (/ the-size 5) )  the-set) i 0 ]
-            (let  [[head & tail] part]
-              (when head
-                (with-open [w (io/writer (str  input  "--" i))]
-                  (print-dup head w))
-                (timbre/info (str "file "  input  "--" i " written on disk"))
-                (recur tail (inc i)))))
-          (timbre/info (str "file " input " splited succesfully"  ))))
       (catch Exception e (timbre/info (str "Error" (.getMessage e)))))) )
 
 
@@ -461,7 +399,6 @@
                            (read {:eof :theend} in-1)) w))
         (timbre/info "Point-wise multiplication finished"))
       (catch Exception e (timbre/info (str "Error" (.getMessage e))))))
-
 
 
 #_(defn convolve-from-files [file-1 file-2 & {fout :print-file}]
@@ -502,6 +439,7 @@
           (timbre/info "Point-wise multiplication finished"))
     (catch Exception e (timbre/info (str "Error" (.getMessage e))))))
 
+
 #_(defn point-wise-multiplication [file-1 file-2  fout ]
   (async/thread
     (timbre/info (str "Opening files " file-1 " and " file-2))
@@ -513,30 +451,3 @@
          (timbre/info "Point-wise multiplication finished")
          (catch Exception e (timbre/info (str "Error" (.getMessage e)))))))
 
-
-
-
-
-
-
-
-
-#_(async/thread
-    (timbre/info "started")
-    (with-open [w (io/writer "/mnt/10E3-FF70/fft-function.edn" )]
-      (binding [*out* w]
-        (print  \[)
-        (io/copy (io/file "/mnt/10E3-FF70/fft-the-spiral.edn") w )
-        (print \]))))
-
-
-
-
-#_(async/thread
-    (timbre/info "started")
-    (doseq [i [0 1 2 3 4]]
-      (with-open [the-spiral  (PushbackReader. (io/reader (io/file (str  "/mnt/10E3-FF70/FFT-spiral.edn--" i)) ))]
-        (with-open [w (io/writer "/mnt/10E3-FF70/fft-the-spiral-2.edn" :append true)]
-           (doseq [x (read  {:eof :theend}  the-spiral)]
-             (print-dup x  w))
-         (timbre/info (str "file no " i " written succesfully"))))))
