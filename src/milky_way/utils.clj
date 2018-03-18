@@ -30,6 +30,8 @@
                         :clojure.spec.alpha/invalid))
        :else :clojure.spec.alpha/invalid))))
 
+(defn ->double [x] (Double/parseDouble x) )
+
 
 (defn char-seq
   [^java.io.BufferedReader rdr]
@@ -48,18 +50,21 @@
 
 (def csv-test "data/FL_insurance_sample.csv")
 
-(defn chunked-line-seq [file-name & {:keys [chunck-size] :or {chunck-size 1000}}]
+(defn chunked-line-seq [file-name & {:keys [chunk-size] :or {chunk-size 1000}}]
     (let [rd (io/reader (io/input-stream (io/file file-name)))
-          chunck-lines  (fn [ ]
+          eof&?  (atom false)
+          chunk-lines  (fn [ ]
                           (seq (loop [lines (transient  [] ) counter 0]
-                                 (if-let [line (.readLine rd)]
-                                   (if (< counter chunck-size)
-                                     (do
-                                       (conj! lines line)
-                                       (recur lines (inc counter)))
-                                     (persistent! lines))
-                                   (do (.close ^java.io.BufferedReader rd)
-                                       (persistent! lines))))))]
-      (letfn [(chuncked-seq [] (lazy-cat (chunck-lines) (chuncked-seq)))]
-              (chuncked-seq))))
+                                (if-let [line (.readLine rd)]
+                                  (if (< counter chunk-size)
+                                      (recur (conj! lines line) (inc counter))
+                                      (persistent! lines))
+                                  (do (swap! eof&? not)
+                                      (persistent! lines))))))]
+      (letfn [(chunked-seq [] (if-not @eof&?
+                                 (concat (chunk-lines)
+                                         (lazy-seq  (chunked-seq)))
+                                 (.close ^java.io.BufferedReader rd)))]
+              (chunked-seq))))
+
 

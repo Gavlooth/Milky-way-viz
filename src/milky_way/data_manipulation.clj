@@ -30,7 +30,7 @@
   ([] (build-vector-parser identity))
   ([parser-fns]
    (let [parser (if (coll? parser-fns)
-                  (fn [x]  (mapv #(%2 %1) x (cycle parser-fns)))
+                (fn [x]  (mapv #(%2 %1) x (cycle parser-fns)))
                   (fn [x]  (mapv #(%2 %1) x (cycle [parser-fns]))))]
      (fn [a-string]
        (-> a-string  (chop-start) (chop-end) (split " ") (parser))))))
@@ -53,17 +53,12 @@
 (defn csv-head->labels [head]
 (mapv reshape-string (split-csv-line head)) )
 
-;TODO  change to {:labels {:strings :keywords}}
-(defn csv->data [[head & tail]]
-
+;TODO  change to {:labels {:strings :keywords}
 
   (defn csv->data [[head & tail]]
     {:labels {:strings (split-csv-line head )
               :keywords   (csv-head->labels head)}
-     :data tail })
-  {:string-labels (split-csv-line head)
-   :keyword-labels  (csv-head->labels head)
-   :data tail })
+     :data (map split-csv-line  tail) })
 
 ;;TODO check if this should be a record
 
@@ -71,19 +66,16 @@
   (apply array-map (interleave  array-1 array-2 )))
 
 (defn csv-stream [file-name & {:keys [labels] :or {labels "keyword"}}]
-  (let  [the-reader  (io/reader (io/input-stream (io/file file-name)))
-         csv-data (csv->data (line-seq the-reader))
+  (let   [ raw-data (utils/chunked-line-seq file-name)
+         csv-data (csv->data raw-data)
          labels (if (= "STRING" (str/upper-case (name labels)))
                   (-> csv-data :labels :strings)
                   (-> csv-data :labels :keywords))]
     {:labels (:labels csv-data)
-     :data   (mapv (fn [x] (apply array-map
-                                  (interleave labels (split-csv-line  x))))
-                   (:data csv-data))
-     :stream-closer #(.close ^java.io.BufferedReader the-reader)}))
+     :data   (map #(array-zipmap labels % ) (:data csv-data))}))
 
 
-(def test-csv-stream
+#_(def test-csv-stream
   (update  (csv-stream utils/csv-test) :data #(mapv vals %) ))
 
 (s/fdef csv-stream
