@@ -3,25 +3,37 @@
     [infix.macros :refer [infix from-string]]
     [clojure.core.matrix :as matrix])
   (:import
-    [org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos]
-    [org.apache.commons.math3.util FastMath]))
+    [org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos
+     [org.apache.commons.math3.util FastMath]]))
 
-(set! *warn-on-reflection* true)
+;; (def log* (Log.))
+;; (def tan* (Tan.))
+;; (def tanh* (Tanh.))
+;; (def cos*  (Cos.))
+;; (def sin*  (Sin.))
+
+(defmacro  make-function [a-function]
+  (let [the-function# '(new ~a-function)]
+      `(fn [x] (.value ^ the-function# (double x)))))
+
+(def pipa (atom nil))
+
+(defmacro ->function [a-function]
+   `(let [untaged-function# (new ~a-function)
+          the-function#  #(vary-meta untaged-function# assoc :tag (new ~a-function))]
+       (reset! pipa (meta the-function#))  
+      #(.value the-function# (double %))))
 
 
-(defmacro ->function [a-class]
- (let [the-class#  (vary-meta a-class assoc :tag (str a-class))]
-     #(.value ~the-class# (double %))))
+(def log (->function Log))
 
-(def log (->function (Log.)))
+(def tan  (make-function Tan.))
 
-(def tan  (->function (Tan.)))
+(def tanh (make-function Tanh.))
 
-(def tanh (->function (Tanh.)))
+(def cos  (make-function Cos.))
 
-(def cos  (->function (Cos.)))
-
-(def sin (->function (Sin.)))
+(def sin (make-function Sin.))
 
 
 (defn csc [x]

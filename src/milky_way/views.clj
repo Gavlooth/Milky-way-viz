@@ -1,7 +1,7 @@
 (ns milky-way.views
   (:import [org.apache.commons.math3.util FastMath])
   (:require
-   [milky-way.functions :as fns]
+   [milky-way.functions :refer [spiral]]
    [quil.core :as q]
    [quil.middleware :as m]))
 
@@ -40,19 +40,17 @@
   ; by default origin is in the left top corner
   (q/background 231 5 100)
   (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
-
     (q/line  -800 0 800 0)
     (q/line  0 -800 0 800)
     (doseq [phi (range start finish step)]
-      (let [[x y] (fns/spiral-galaxy   phi  :A 800 :B 0.4 :N 16)]
+      (let [[x y] (spiral phi :A 800 :B 0.4 :N 16)]
         (q/point   x y)
         (q/point  (* -1 x) (* -1 y))))
-    (doseq [phi (range start (* finish  0.5) step)]
-      (let [[x y] (fns/spiral-galaxy   phi  :A 800 :B 0.4 :N 16)]
+    (doseq [phi (range start (* finish 0.5) step)]
+      (let [[x y] (spiral phi :A 800 :B 0.4 :N 16)]
         (q/point  (* 1 y) (* -1 x))
         (q/point  (* -1 y) (* 1 x)))))
   (q/save  (str (uuid) "-milky-way.png")))
-
 
 
 
