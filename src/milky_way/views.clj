@@ -21,6 +21,7 @@
   (q/stroke 255 h)
   (q/line 10 (+ h 4) (- (q/width) 20) (+ h 4)))
 
+
 (defn draw-horizontal-line
   "Draws a vertical line on the canvas at width w"
   [w]
@@ -33,9 +34,9 @@
   (q/stroke-weight 0.8)
   (q/color-mode :hsb 360 100 100 1.0))
 
-
 ; define function which draws spiral
 (defn draw []
+ (let the-spiral   (spiral {:A 800 :B 0.4 :N 16})
   ; move origin point to centre of the sketch
   ; by default origin is in the left top corner
   (q/background 231 5 100)
@@ -43,14 +44,14 @@
     (q/line  -800 0 800 0)
     (q/line  0 -800 0 800)
     (doseq [phi (range start finish step)]
-      (let [[x y] (spiral phi :A 800 :B 0.4 :N 16)]
+      (let [[x y] (the-spiral phi)]
         (q/point   x y)
         (q/point  (* -1 x) (* -1 y))))
     (doseq [phi (range start (* finish 0.5) step)]
-      (let [[x y] (spiral phi :A 800 :B 0.4 :N 16)]
+      (let [[x y] (the-spiral phi)]
         (q/point  (* 1 y) (* -1 x))
-        (q/point  (* -1 y) (* 1 x)))))
-  (q/save  (str (uuid) "-milky-way.png")))
+        (q/point  (* -1 y) (* 1 x))))
+   (q/save  (str (uuid) "-milky-way.png")))))
 
 
 
