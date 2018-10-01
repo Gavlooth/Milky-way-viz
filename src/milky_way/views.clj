@@ -36,7 +36,7 @@
 
 ; define function which draws spiral
 (defn draw []
- (let the-spiral   (spiral {:A 800 :B 0.4 :N 16})
+ (let [the-spiral   (spiral {:A 800 :B 0.4 :N 16})]
   ; move origin point to centre of the sketch
   ; by default origin is in the left top corner
   (q/background 231 5 100)
@@ -47,10 +47,10 @@
       (let [[x y] (the-spiral phi)]
         (q/point   x y)
         (q/point  (* -1 x) (* -1 y))))
-    (doseq [phi (range start (* finish 0.5) step)]
-      (let [[x y] (the-spiral phi)]
-        (q/point  (* 1 y) (* -1 x))
-        (q/point  (* -1 y) (* 1 x))))
+    #_(doseq [phi (range start (* finish 0.5) step)]
+        (let [[x y] (the-spiral phi)]
+          (q/point  (* 1 y) (* -1 x))
+          (q/point  (* -1 y) (* 1 x))))
    (q/save  (str (uuid) "-milky-way.png")))))
 
 
