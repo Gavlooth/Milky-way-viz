@@ -10,9 +10,7 @@
 (defmacro ->function [a-function]
   `(fn [x#] (. ~a-function ~(with-meta 'value {:tag (type a-function)})  (double x#))))
 
-(def r-matrix [[0 -1] [1 0]])
-
-(def t-opts  {:A 800 :B 0.4 :N 16 :length 2 :point-count 20})
+(def t-opts  {:length 2 :A 800 :B 0.4 :N 16 :point-count 20 :start 0 :end 2})
 
 (def log (->function (Log.)))
 
@@ -27,6 +25,11 @@
 (defn csc [x]
   (/ 1 (sin x)))
 
+(defn rotate-90 [a-vector]
+  (matrix/mmul a-vector [[0 -1] [1 0]]))
+
+(defn rotate-180 [a-vector]
+ (matrix/mmul a-vector [[1 0] [0 1]]))
 
 (defn parametric-radius-spiral [A B N]
  (fn [phi]
@@ -63,18 +66,19 @@
             - r(phi) * sin(phi))])))
 
 
-(defn orthogonal-line-segment [a-vector  {:keys [length point-count]
-                                          :or {length 1 point-count 5}}]
- (let [the-vector (matrix/normalise  (matrix/mmul a-vector r-matrix))
-       tips (rest (range 0 length  (float (/ length point-count))))]
+
+(defn orthogonal-line-segment
+  [a-vector  {:keys [start end point-count]
+              :or {start 0 end 1 point-count 5}}]
+ (let [the-vector (matrix/normalise  (rotate-90 a-vector))
+       tips (rest (range start end (float  (/ (- end start)  point-count))))]
   (map (partial matrix/mul the-vector)  tips)))
 
 
-(defn fat-spiral [{:keys [length point-count A B N]
-                   :or {length 1 point-count 5 A 1 B 1 N 1} :as opts}]
+(defn fat-spiral [{:keys [ point-count A B N]
+                   :or {point-count 5 A 1 B 1 N 1} :as opts}]
       (let [the-spiral (spiral opts)
-            the-tangent (spiral-derivative opts)
-            opts2 (dissoc opts :A :B :N)]
+            the-tangent (spiral-derivative opts)]
        (fn [phi]
         (let [point  (the-spiral phi)
               tangent (the-tangent phi)
@@ -82,6 +86,8 @@
                           (orthogonal-line-segment tangent opts)
                           (repeat point))]
              (cons point points)))))
+
+
 
 ;; (matrix/normalise  (matrix/mmul (q 4) r-matrix))
 #_(def q (spiral-derivative t-opts))

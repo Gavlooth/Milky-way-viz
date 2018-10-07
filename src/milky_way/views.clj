@@ -75,3 +75,15 @@
           (q/point  (* -1 y) (* 1 x)))))
     (q/save  (str (uuid) "-milky-way.png")))))
 
+
+(defn draw-fat-spiral-complements []
+ (let [the-fat-spiral-complements   (fat-spiral (assoc t-opts :start 3 :end 8))]
+  (q/background 231 5 100)
+  (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
+    (q/line  -800 0 800 0)
+    (q/line  0 -800 0 800)
+    (doseq [phi (range start finish step)]
+      (let [points (the-fat-spiral-complements  phi)]
+        (doseq [[x y] points]
+          (q/point  x y))))
+    (q/save  (str (uuid) "-milky-way.png")))))
