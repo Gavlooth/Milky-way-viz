@@ -65,13 +65,13 @@
 
 (defn orthogonal-line-segment [a-vector  {:keys [length point-count]
                                           :or {length 1 point-count 5}}]
- (let [the-vector (matrix/normalise  (matrix/mmul vector r-matrix))
-       tips (drop (range 0 length  (/ length point-count)))]
-  (map (partial matrix/mul [1 2])  tips)))
+ (let [the-vector (matrix/normalise  (matrix/mmul a-vector r-matrix))
+       tips (rest (range 0 length  (float (/ length point-count))))]
+  (map (partial matrix/mul the-vector)  tips)))
 
 
-(defn fat-spiral [  {:keys [length point-count A B N]
-                     :or {length 1 point-count 5 A 1 B 1 N 1} :as opts}]
+(defn fat-spiral [{:keys [length point-count A B N]
+                   :or {length 1 point-count 5 A 1 B 1 N 1} :as opts}]
       (let [the-spiral (spiral opts)
             the-tangent (spiral-derivative opts)
             opts2 (dissoc opts :A :B :N)]
@@ -83,12 +83,9 @@
                           (repeat point))]
              (cons point points)))))
 
-
-;; ( (spiral-derivative t-opts) 2)
-;; (def skata (fat-spiral))
-;; (skata 2)
-
-(defn ring-galaxy
-  [x &  {:keys [A B N] :or {A 1 B 1 N 1}}]
-  (let [r      (/ A (log   (* B (tanh (/ x (* 2 N))))))]
-    [(* r (sin x)) (* r (cos x))]))
+;; (matrix/normalise  (matrix/mmul (q 4) r-matrix))
+#_(def q (spiral-derivative t-opts))
+#_(orthogonal-line-segment (q 4) t-opts)
+#_(spiral {:A 800 :B 0.4 :N 16})
+#_(def pipa (fat-spiral t-opts))
+#_(pipa 4)
