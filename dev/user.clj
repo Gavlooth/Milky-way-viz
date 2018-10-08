@@ -2,22 +2,20 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.namespace.repl :as tn]
             [mount.core :as mount]
-            #_[mount.tools.graph :refer [states-with-deps]]
-            [milky-way.core :refer [run]]
-            #_[milky-way.views :refer [draw]]))
+            [milky-way.core :as core]))
 
 
-(defn start [] (#'run))             ;; example on how to start app with certain states
+(defn start [] (#'core/run))             ;; example on how to start app with certain states
 
 (defn stop []
   (mount/stop))
 
 (defn refresh []
-  (stop)
+  #_(stop)
   (tn/refresh))
 
 (defn refresh-all []
-  (stop)
+  #_(stop)
   (tn/refresh-all))
 
 (defn go

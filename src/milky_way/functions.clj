@@ -1,7 +1,7 @@
 (ns milky-way.functions
   (:require
     [infix.macros :refer [infix from-string]]
-    [clojure.core.matrix :as matrix])
+    [clojure.core.matrix :as matrix  :refer [mmul mul normalise]])
   (:import
     [org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos]
     [org.apache.commons.math3.util FastMath]))
@@ -25,11 +25,15 @@
 (defn csc [x]
   (/ 1 (sin x)))
 
+(defn convex-hull [[x1 y1] [x2 y2]]
+ (fn [t] [(+ x1 (* t x2))  (+ y1 (* t y2))]))
+
+
 (defn rotate-90 [a-vector]
-  (matrix/mmul a-vector [[0 -1] [1 0]]))
+  (mmul a-vector [[0 -1] [1 0]]))
 
 (defn rotate-180 [a-vector]
- (matrix/mmul a-vector [[1 0] [0 1]]))
+ (mmul a-vector [[1 0] [0 1]]))
 
 (defn parametric-radius-spiral [A B N]
  (fn [phi]
@@ -48,50 +52,57 @@
 
 
 (defn spiral
-  [{:keys [A B N] :or {A 1 B 1 N 1}}]
-  (let [r (parametric-radius-spiral A B N)]
-   (fn [phi]
-    [(infix  r(phi) *  sin(phi)) (infix  r(phi) * cos(phi))])))
+  ([](spiral {}))
+  ([{:keys [A B N] :or {A 1 B 1 N 1}}]
+   (let [r (parametric-radius-spiral A B N)]
+    (fn [phi]
+     [(infix  r(phi) *  sin(phi)) (infix  r(phi) * cos(phi))]))))
 
 
 (defn spiral-derivative
-  [{:keys [A B N] :or {A 1 B 1 N 1}}]
-  (let [r ( parametric-radius-spiral A B N)
-        r' (parametric-radius-spiral-derivative A B N)]
+  ([] (spiral-derivative {}))
+  ([{:keys [A B N] :or {A 1 B 1 N 1}}]
+   (let [r ( parametric-radius-spiral A B N)
+         r' (parametric-radius-spiral-derivative A B N)]
 
-   (fn [phi]
-    [(infix r'(phi) * sin(phi)
-            + r(phi) * cos(phi))
-     (infix r'(phi) * cos(phi)
-            - r(phi) * sin(phi))])))
+    (fn [phi]
+     [(infix r'(phi) * sin(phi)
+             + r(phi) * cos(phi))
+      (infix r'(phi) * cos(phi)
+             - r(phi) * sin(phi))]))))
 
 
 
 (defn orthogonal-line-segment
-  [a-vector  {:keys [start end point-count]
+ ([a-vector] (orthogonal-line-segment  a-vector {}))
+ ([a-vector  {:keys [start end point-count]
               :or {start 0 end 1 point-count 5}}]
- (let [the-vector (matrix/normalise  (rotate-90 a-vector))
-       tips (rest (range start end (float  (/ (- end start)  point-count))))]
-  (map (partial matrix/mul the-vector)  tips)))
+  (let [the-vector (normalise  (rotate-90 a-vector))
+        tips (rest (range start end (float  (/ (- end start)  point-count))))]
+   (map (partial mul the-vector)  tips))))
+
+(defn convex-hull [t] (fn [a b](+ (* a t)  (*  (- 1 t) b))))
+
+(defn spiral-2d
+  ([](spiral-2d {}))
+  ([{:keys [A B N Width] :or {A 1 B 1 N 1 Width 1} :as opts}]
+   (let [f (spiral opts)
+         f' (spiral-derivative opts)]
+     (fn [phi t]
+      (let [g (convex-hull t)
+            [x y] (f phi)
+            [x' y'] (mul  (normalise  (rotate-90 (f' phi))) Width)]
+        [(g x x') (g y y')])))))
 
 
-(defn fat-spiral [{:keys [ point-count A B N]
-                   :or {point-count 5 A 1 B 1 N 1} :as opts}]
-      (let [the-spiral (spiral opts)
-            the-tangent (spiral-derivative opts)]
-       (fn [phi]
-        (let [point  (the-spiral phi)
-              tangent (the-tangent phi)
-              points (map matrix/add
-                          (orthogonal-line-segment tangent opts)
-                          (repeat point))]
-             (cons point points)))))
 
-
-
-;; (matrix/normalise  (matrix/mmul (q 4) r-matrix))
-#_(def q (spiral-derivative t-opts))
-#_(orthogonal-line-segment (q 4) t-opts)
-#_(spiral {:A 800 :B 0.4 :N 16})
-#_(def pipa (fat-spiral t-opts))
-#_(pipa 4)
+(defn spiral-2d-C
+  ([](spiral-2d {}))
+  ([{:keys [A B N Width] :or {A 1 B 1 N 1 Width 1} :as opts}]
+   (let [f (spiral opts)
+         f' (spiral-derivative opts)]
+     (fn [phi t]
+      (let [g (convex-hull t)
+            [x y] (f phi)
+            [x' y'] (mul  (normalise  (rotate-90 (f' phi))) Width)]
+        [(g x x') (g y y')])))))

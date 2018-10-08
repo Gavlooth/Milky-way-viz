@@ -7,9 +7,7 @@
     [clojure.java.io :as io]
     [clojure.spec.alpha :as s]
     [clojure.string :as str]
-    [taoensso.timbre :as timbre :refer [spy]]
-    [taoensso.tufte :as tufte :refer (defnp p profiled profile)]
-    [kixi.stats.core :refer  [standard-deviation correlation correlation-matrix]])
+    [taoensso.timbre :as timbre :refer [spy]])
   (:import (java.io BufferedReader PushbackReader FileReader IOException)
            (org.apache.commons.lang3 StringUtils)))
 

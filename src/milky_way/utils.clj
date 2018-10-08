@@ -5,30 +5,6 @@
             [taoensso.timbre :as timbre :refer [spy]])
   (:import (java.io BufferedReader PushbackReader FileReader IOException)
            (org.apache.commons.lang3 StringUtils)))
-;;
-;;
-;; (def ->?double
-;;   (s/conformer
-;;    (fn [x]
-;;      (cond
-;;        (integer? x) x
-;;        (string? x)  (try
-;;                       (Double/parseDouble x)
-;;                       (catch Exception _
-;;                         :clojure.spec.alpha/invalid))
-;;        :else :clojure.spec.alpha/invalid))))
-;;
-;;
-;; (def ->?integer
-;;   (s/conformer
-;;    (fn  [x]
-;;      (cond
-;;        (integer? x) x
-;;        (string? x)  (try
-;;                       (Integer/parseInt (StringUtils/removeEnd  x ".0"))
-;;                       (catch Exception _
-;;                         :clojure.spec.alpha/invalid))
-;;        :else :clojure.spec.alpha/invalid))))
 
 (defn ->double [x] (Double/parseDouble x))
 
