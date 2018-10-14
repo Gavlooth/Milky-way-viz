@@ -65,46 +65,17 @@
   (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
     (q/line  -800 0 800 0)
     (q/line  0 -800 0 800)
-    (doseq [phi (range start finish step)
+    (doseq [phi  (concat (range start finish step)
+                         (map (partial * -10) (range start finish step)))
             t (range 0 0.5 0.1)]
       (let [[x y] (the-spiral phi t)]
         (q/point  x y)
-        #_(q/point  (* -1 x) (* -1 y))
-        #_(q/point  (* 1 y) (* -1 x))
-        #_(q/point  (* -1 y) (* 1 x))))
+        (q/point  (* -1 x) (* -1 y))
+        (q/point  (* 1 y) (* -1 x))
+        (q/point  (* -1 y) (* 1 x))))
    #_(q/save  (str (uuid) "-milky-way.png")))))
 
 
 
-#_(defn draw-fat-spiral []
-   (let [the-fat-spiral   (fat-spiral t-opts)]
-    ; move origin point to centre of the sketch
-    ; by default origin is in the left top corner
-    (q/background 231 5 100)
-    (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
-      (q/line  -800 0 800 0)
-      (q/line  0 -800 0 800)
-      (doseq [phi (range start finish step)]
-        (let [points (the-fat-spiral phi)]
-          (doseq [[x y] points]
-            (q/point  x y)
-            (q/point  (* -1 x) (* -1 y))
-            (q/point  (* 1 y) (* -1 x))
-            (q/point  (* -1 y) (* 1 x)))))
-      (q/save  (str (uuid) "-milky-way.png")))))
 
 
-#_(defn draw-fat-spiral-complements []
-   (let [the-fat-spiral-complements   (fat-spiral-C (assoc t-opts :start 3 :end 18))]
-    (q/background 231 5 100)
-    (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
-      (q/line  -800 0 800 0)
-      (q/line  0 -800 0 800)
-      (doseq [phi (range start finish step)]
-        (let [points (the-fat-spiral-complements  phi)]
-          (doseq [[x y] points]
-            (q/point  x y)
-            (q/point  (* -1 x) (* -1 y))
-            (q/point  (* 1 y) (* -1 x))
-            (q/point  (* -1 y) (* 1 x)))))
-      (q/save  (str (uuid) "-milky-way.png")))))

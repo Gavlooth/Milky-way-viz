@@ -71,15 +71,17 @@
       (infix r'(phi) * cos(phi)
              - r(phi) * sin(phi))]))))
 
+#_(defn orthonormal-spiral-vector
+   ([phi] (orthonormal-spiral-vector phi {}))
+   ([phi {:keys [A B N] :or {A 1 B 1 N 1} :as opts}]
+    (let [f  (spiral opts)
+          df (spiral-derivative opts)
+          [x y] (f phi)
+          [x' y'] (normalise  (rotate-90 (df phi)))]
+     [[x y] [(+ x x')  (+ y y')]])))
 
 
-(defn orthogonal-line-segment
- ([a-vector] (orthogonal-line-segment  a-vector {}))
- ([a-vector  {:keys [start end point-count]
-              :or {start 0 end 1 point-count 5}}]
-  (let [the-vector (normalise  (rotate-90 a-vector))
-        tips (rest (range start end (float  (/ (- end start)  point-count))))]
-   (map (partial mul the-vector)  tips))))
+
 
 (defn convex-hull [t] (fn [a b](+ (* a t)  (*  (- 1 t) b))))
 
@@ -90,8 +92,8 @@
          f' (spiral-derivative opts)]
      (fn [phi t]
       (let [g (convex-hull t)
-            [x y] (f phi)
-            [x' y'] (mul  (normalise  (rotate-90 (f' phi))) Width)]
+            [x y :as X] (f phi)
+            [x' y'] (matrix/add X  (mul  (normalise  (rotate-90 (f' phi))) Width))]
         [(g x x') (g y y')])))))
 
 
