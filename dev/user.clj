@@ -27,5 +27,6 @@
 (defn reset
   "stops all states defined by defstate, reloads modified source files, and restarts the states"
   []
+  (refresh-all)
   (refresh)
   (go))

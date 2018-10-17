@@ -5,6 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [#_[org.clojure/clojure "1.9.0"]
                  [org.clojure/clojure "1.10.0-RC1"]
+                 [it.unimi.dsi/dsiutils "2.5.4"]
                  [com.taoensso/timbre "4.10.0"]
                  [org.clojure/core.async "0.4.474"]
                  [rm-hull/infix "0.3.3"]
