@@ -20,12 +20,6 @@
 (defn next-rnd []
  (.nextDoubleFast ^it.unimi.dsi.util.XoShiRo256PlusRandom fast-rnd*))
 
-#_(def step 0.001)
-
-#_(def start 0.001)
-
-#_(def finish (- FastMath/PI (* 2 step)))
-
 (defn- sample-less-than [x]
  (let [end (- x 0.002)]
   #(+ 0.001 (* end (next-rnd)))))
@@ -132,11 +126,9 @@
      (fn [phi t]
       (let [g (convex-hull t)
              X (f phi)
-            [x2 y2](rotate-90 (matrix/add X  (mul  (normalise  (rotate-90 (f' phi))) width)))
-            [x1 y1](rotate-90 (matrix/sub X  (mul  (normalise  (rotate-90 (f' phi))) width)))]
+            [x2 y2] (rotate-90 (matrix/add X  (mul  (normalise  (rotate-90 (f' phi))) width)))
+            [x1 y1] (rotate-90 (matrix/sub X  (mul  (normalise  (rotate-90 (f' phi))) width)))]
         [(g x1 x2) (g y1 y2)])))))
-
-
 
 
 (defn  spiral-2d-C
@@ -157,9 +149,8 @@
 (defn sample-spiral-arm-2d
  #_([n] (sample-spiral-arm-2d n {}))
   [n opts]
-  (let [width (get opts :Width 1)
-        the-spiral  (spiral-2d opts)
-        points (sample-n n width)]
+  (let [the-spiral  (spiral-2d opts)
+        points (sample-n n 1)]
     (map #(apply the-spiral %) points)))
 
 
@@ -169,4 +160,17 @@
    (apply concat
     (for [i [1 2 3 4]]
        (map (partial rotate-90-times i) (sample-spiral-arm-2d n opts))))))
+
+
+(defn sample-spiral-arm-2d-C
+  [n opts]
+  (let [the-spiral  (spiral-2d-C opts)
+        points (sample-n n 1)]
+    (map #(apply the-spiral %) points)))
+
+
+(defn sample-spiral-2d-C
+  ([n] (sample-spiral-2d-C n {}))
+  ([n opts]
+   (sample-spiral-arm-2d-C n opts)))
 

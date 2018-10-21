@@ -4,8 +4,15 @@
 
 
 (defn run [& args]
-  (q/defsketch milky-way
+  (if-not (= (first args) :C)
+   (q/defsketch milky-way
+      :title "Milky way"
+      :size [800 800]
+      :setup views/setup
+      :draw views/draw-2d)
+   (q/defsketch milky-way
     :title "Milky way"
     :size [800 800]
     :setup views/setup
-    :draw views/draw-2d))
+    :draw views/draw-2d-C)))
+

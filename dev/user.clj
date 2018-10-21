@@ -5,28 +5,27 @@
             [milky-way.core :as core]))
 
 
-(defn start [] (#'core/run))             ;; example on how to start app with certain states
+(defn start [& args]
+  (#'core/run (first args)))             ;; example on how to start app with certain states
 
 (defn stop []
   (mount/stop))
 
 (defn refresh []
-  #_(stop)
   (tn/refresh))
 
 (defn refresh-all []
-  #_(stop)
   (tn/refresh-all))
 
 (defn go
   "starts all states defined by defstate"
-  []
-  (start)
+  [& args]
+  (start (first args))
   :ready)
 
 (defn reset
   "stops all states defined by defstate, reloads modified source files, and restarts the states"
-  []
+  [& args]
   (refresh-all)
   (refresh)
-  (go))
+  (go (first args)))
