@@ -4,7 +4,7 @@
             [clojure.core.async :as async]
             [taoensso.timbre :as timbre :refer [spy]])
   (:import (java.io BufferedReader PushbackReader FileReader IOException)
-           (org.apache.commons.lang3 StringUtils)))
+           #_(org.apache.commons.lang3 StringUtils)))
 
 (defn ->double [x] (Double/parseDouble x))
 

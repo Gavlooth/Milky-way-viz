@@ -15,6 +15,7 @@
                  [net.mikera/core.matrix "0.62.0"]
                  [camel-snake-kebab "0.4.0"]
                   ;[org.clojure/tools.namespace "0.2.11"]
+                 [org.apache.commons/commons-lang3 "3.0"]
                  [org.apache.commons/commons-math3 "3.6.1"]]
   :profiles {:uberjar {:aot :all :uberjar-name "milky"}
 
