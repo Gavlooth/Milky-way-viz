@@ -82,16 +82,22 @@
 
 
 (defn draw-2d []
-  (let [the-points (functions/sample-spiral-2d 5000 functions/t-opts2)]
-   ; move origin point to centre of the sketch
+  (let [the-points (functions/sample-spiral-2d 5000 functions/t-opts2)
+        the-points-C (functions/sample-spiral-2d-C 5000 functions/t-opts2)]
+    ; move origin point to centre of the sketch
    ; by default origin is in the left top corner
    (q/background 231 5 100)
    (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
      (q/line  -800 0 800 0)
      (q/line  0 -800 0 800)
      (doseq [[x y] the-points]
+        (q/point  x y)))
+   (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
+     (q/line  -800 0 800 0)
+     (q/line  0 -800 0 800)
+     (doseq [[x y] the-points-C]
         (q/point  x y))
-     (q/save  (str (date) "-milky-way.png")))))
+     #_(q/save  (str (date) "-milky-way.png")))))
 
 #_(defn draw-2d-C []
    (let [the-spiral   (spiral-2d-C (assoc t-opts :point-count 60))]

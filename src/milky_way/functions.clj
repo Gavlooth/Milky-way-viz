@@ -68,8 +68,8 @@
 (defn csc [x]
   (/ 1 (sin x)))
 
-(defn convex-hull [[x1 y1] [x2 y2]]
- (fn [t] [(+ x1 (* t x2))  (+ y1 (* t y2))]))
+#_(defn convex-hull [[x1 y1] [x2 y2]]
+   (fn [t] [(+ x1 (* t x2))  (+ y1 (* t y2))]))
 
 
 (defn rotate-90 [a-vector]
@@ -77,6 +77,11 @@
 
 (defn- rotate-90-times [times a-vector]
   (mmul a-vector (reduce mmul (repeat times [[0 -1] [1 0]]))))
+
+(defn- rotate-angle [angle a-vector]
+ (let [θ  (*  (/  angle 180) FastMath/PI)]
+  (mmul a-vector [[(cos θ) (* -1 (sin θ))] [(sin θ) (cos θ)]])))
+
 
 (defn parametric-radius-spiral [A B N]
  (fn [phi]
@@ -107,7 +112,6 @@
   ([{:keys [A B N] :or {A 1 B 1 N 1}}]
    (let [r ( parametric-radius-spiral A B N)
          r' (parametric-radius-spiral-derivative A B N)]
-
     (fn [phi]
      [(infix r'(phi) * sin(phi)
              + r(phi) * cos(phi))
@@ -115,19 +119,19 @@
              - r(phi) * sin(phi))]))))
 
 
-(defn convex-hull [t] (fn [a b](+ (* a t)  (*  (- 1 t) b))))
+(defn convex-hull [t] (fn [a b] (+ (* a t)  (*  (- 1 t) b))))
 
 (defn  spiral-2d
   ([](spiral-2d {}))
   ([opts]
-   (let [width (get opts :Width 2)
+   (let [width (get opts :Width 1)
          f (spiral opts)
          f'(spiral-derivative opts)]
      (fn [phi t]
       (let [g (convex-hull t)
              X (f phi)
-            [x2 y2] (rotate-90 (matrix/add X  (mul  (normalise  (rotate-90 (f' phi))) width)))
-            [x1 y1] (rotate-90 (matrix/sub X  (mul  (normalise  (rotate-90 (f' phi))) width)))]
+            [x2 y2]  (matrix/add X  (mul  (normalise  (rotate-90 (f' phi))) width))
+            [x1 y1]  (matrix/sub X  (mul  (normalise  (rotate-90 (f' phi))) width))]
         [(g x1 x2) (g y1 y2)])))))
 
 
@@ -139,9 +143,8 @@
          f'(spiral-derivative opts)]
      (fn [phi t]
       (let [g (convex-hull t)
-            X (f phi)
-            [x2 y2] (rotate-90 (matrix/add X  (mul  (normalise  (rotate-90 (f' phi))) width)))
-            [x1 y1] (matrix/sub X  (mul  (normalise  (rotate-90 (f' phi))) width))]
+            [x2 y2] (matrix/add (f phi)  (mul  (normalise  (rotate-90 (f' phi))) width))
+            [x1 y1] ( rotate-angle 90 (matrix/sub (f (/  phi 2)) (mul  (normalise  (rotate-90 (f' (/  phi 2))))  width)))]
         [(g x1 x2) (g y1 y2)])))))
 
 
