@@ -99,22 +99,6 @@
         (q/point  x y))
      #_(q/save  (str (date) "-milky-way.png")))))
 
-#_(defn draw-2d-C []
-   (let [the-spiral   (spiral-2d-C (assoc t-opts :point-count 60))]
-    ; move origin point to centre of the sketch
-    ; by default origin is in the left top corner
-    (q/background 231 5 100)
-    (q/with-translation [(/ (q/width) 2) (/ (q/height) 2)]
-      (q/line  -800 0 800 0)
-      (q/line  0 -800 0 800)
-      (doseq [phi  (range start finish step)
-              t (range 0 1 0.03)]
-        (let [[x y] (the-spiral phi t)]
-          (q/point  x y)
-          (q/point  (* -1 x) (* -1 y))
-          (q/point  (* 1 y) (* -1 x))
-          (q/point  (* -1 y) (* 1 x))))
-      (q/save  (str (date) "-milky-way.png")))))
 
 
 (defn draw-2d-C []

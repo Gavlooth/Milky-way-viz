@@ -3,7 +3,7 @@
     [infix.macros :refer [infix from-string]]
     [clojure.core.matrix :as matrix  :refer [mmul mul normalise]])
   (:import
-    (org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos)
+    (org.apache.commons.math3.analysis.function Log Tanh Tan Sin Cos Pow Sqrt)
     (org.apache.commons.math3.util FastMath)
     (it.unimi.dsi.util XoShiRo256PlusRandom)
     #_(it.unimi.dsi Util)))
@@ -34,7 +34,7 @@
  ([n]
   (sample-repeat-distinct n FastMath/PI))
  ([n width]
-  (map vec
+  (pmap vec
    (partition
      2
      (interleave
@@ -65,12 +65,19 @@
 
 (def sin (->function (Sin.)))
 
+(def pow
+  (let [pow* (Pow.)]
+    #(.value ^org.apache.commons.math3.analysis.function.Pow pow* ^double % ^double %2)))
+
+(def sqrt #(pow % 0.5))
+
+(def sqr #(pow % 2))
+
 (defn csc [x]
   (/ 1 (sin x)))
 
 #_(defn convex-hull [[x1 y1] [x2 y2]]
-   (fn [t] [(+ x1 (* t x2))  (+ y1 (* t y2))]))
-
+    (fn [t] [(+ x1 (* t x2))  (+ y1 (* t y2))]))
 
 (defn rotate-90 [a-vector]
   (mmul a-vector [[0 -1] [1 0]]))
@@ -154,7 +161,7 @@
   [n opts]
   (let [the-spiral  (spiral-2d opts)
         points (sample-n n 1)]
-    (map #(apply the-spiral %) points)))
+    (pmap #(apply the-spiral %) points)))
 
 
 (defn sample-spiral-2d
@@ -162,18 +169,22 @@
   ([n opts]
    (apply concat
     (for [i [1 2 3 4]]
-       (map (partial rotate-90-times i) (sample-spiral-arm-2d n opts))))))
+       (pmap (partial rotate-90-times i) (sample-spiral-arm-2d n opts))))))
 
 
 (defn sample-spiral-arm-2d-C
   [n opts]
   (let [the-spiral  (spiral-2d-C opts)
         points (sample-n n 1)]
-    (map #(apply the-spiral %) points)))
+    (pmap #(apply the-spiral %) points)))
 
 
 (defn sample-spiral-2d-C
   ([n] (sample-spiral-2d-C n {}))
   ([n opts]
-   (sample-spiral-arm-2d-C n opts)))
+   (apply concat
+    (for [i [1 2 3 4]]
+       (pmap (partial rotate-90-times i)
+             (sample-spiral-arm-2d-C n opts))))))
+
 
